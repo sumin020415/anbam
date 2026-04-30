@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* 컬러 — 원본 안밤 nightsafe/App.css */
+  --color-ink-1: #333d4b;
+  --color-ink-2: #6b7684;
+  --color-line-1: #e5e8eb;
+  --color-line-2: #f8fafb;
+  --color-point: #ffd75e;
+  --color-ok: #b6f500;
+  --color-warn: #c5172e;
+
+  /* 폰트 — layout.tsx 의 next/font 와 연결 */
+  --font-sans: var(--font-noto-sans-kr);
+
+  /* borderRadius */
+  --radius-anbam: 12px;
+
+  /* 그림자 */
+  --shadow-nav: 0 0 4px 0 rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+
+  /* 레이아웃 상수 */
+  --spacing-nav: 60px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    color: var(--color-ink-1);
+    background: #ffffff;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ul,
+  li {
+    list-style: none;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    cursor: pointer;
+    color: inherit;
+  }
 }
