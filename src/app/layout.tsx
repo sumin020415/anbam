@@ -10,7 +10,7 @@ const notoSansKR = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "안밤 — 부산 안전 정보 시민 커뮤니티",
+  title: "안밤 : 부산 안전 정보 시민 커뮤니티",
   description: "보안등·CCTV·시민 제보로 만드는 부산 안전 지도",
 };
 
