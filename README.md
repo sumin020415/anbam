@@ -31,6 +31,7 @@
 | 🎨 디자인 토큰 시스템 (안밤 토스/카카오 무드) | ✅ |
 | 🔐 회원가입 / 로그인 (Supabase Auth) | ✅ |
 | 👤 마이페이지 + 헤더 네비게이션 | ✅ |
+| ✍️ 회원가입 폼 강화 (도메인 select, 이메일/닉네임 중복확인, 비밀번호 강도/확인) | ✅ |
 | 📝 시민 제보 게시글 CRUD | ⏳ |
 | 💬 댓글 + 대댓글 (계층 구조) | ⏳ |
 | 👍👎 좋아요 / 싫어요 | ⏳ |
@@ -88,14 +89,15 @@ src/
 ├── app/                  # Next.js App Router
 │   ├── (auth)/           # 회원가입/로그인 (라우트 그룹)
 │   ├── (main)/           # 메인 — 헤더 공유 (홈/마이페이지/지도/게시판)
-│   └── api/              # Route Handlers (REST API) — 예정
+│   └── api/              # Route Handlers
+│       └── auth/check-email/   # 이메일 중복확인 (service_role)
 ├── components/
 │   ├── auth/             # LogoutButton 등
 │   └── layout/           # Header
 ├── hooks/                # useUser (onAuthStateChange 구독)
 ├── lib/
-│   ├── supabase/         # 브라우저/서버 클라이언트
-│   ├── schemas/          # zod 검증 스키마
+│   ├── supabase/         # 브라우저/서버 클라이언트 + admin (서버 전용)
+│   ├── schemas/          # zod 검증 스키마 (비밀번호 강도 등)
 │   └── services/         # Supabase 쿼리/뮤테이션 (RN 이식 대비)
 └── middleware.ts         # 세션 자동 갱신
 ```
