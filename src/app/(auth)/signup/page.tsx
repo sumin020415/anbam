@@ -74,8 +74,14 @@ export default function SignupPage() {
   });
 
   const passwordValue = watch('password');
+  const passwordConfirmValue = watch('passwordConfirm');
   const nicknameValue = watch('nickname');
   const emailValue = watch('email');
+
+  const passwordMismatch =
+    !!passwordValue &&
+    !!passwordConfirmValue &&
+    passwordValue !== passwordConfirmValue;
 
   // 이메일 로컬/도메인 변경 시 form 값 동기화 + 중복확인 리셋
   useEffect(() => {
@@ -296,11 +302,13 @@ export default function SignupPage() {
             {...register('passwordConfirm')}
             className="w-full rounded-anbam border border-line-1 bg-white px-4 py-3 text-ink-1 placeholder:text-ink-2 focus:outline-none focus:border-point"
           />
-          {errors.passwordConfirm && (
+          {passwordMismatch ? (
+            <p className="text-warn text-xs">비밀번호가 일치하지 않습니다</p>
+          ) : errors.passwordConfirm ? (
             <p className="text-warn text-xs">
               {errors.passwordConfirm.message}
             </p>
-          )}
+          ) : null}
         </div>
 
         {submitError && (
