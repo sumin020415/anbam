@@ -3,7 +3,7 @@
 > Java/Spring Boot 로 만든 팀 프로젝트(2주, 4인)를 풀스택 TypeScript + Supabase 로 1인 재구현한 사이드 프로젝트.
 
 🔗 **Live Demo** : https://anbam.vercel.app
-📖 **개발 로그 (Notion)** : _(작성 예정 — Phase 9)_
+📖 **개발 로그 (Notion)** : _(정리 중 — 게시 예정)_
 🧑‍💻 **원본 (Java/Spring 팀 프로젝트)** : https://github.com/sumin020415/project_2
 
 ---
@@ -53,7 +53,7 @@
 ## 🚀 Run Locally
 
 ### 사전 준비
-- Node.js 20+
+- Node.js 20+ / Git
 - Supabase 프로젝트 + Kakao Developers 앱 (JavaScript 키)
 
 ### 환경변수 (`.env.local`)
@@ -68,8 +68,15 @@ NEXT_PUBLIC_KAKAO_MAP_KEY=발급받은_JS_키
 ```bash
 git clone https://github.com/sumin020415/anbam.git
 cd anbam
-npm install
-npm run dev   # → http://localhost:3000
+npm install          # vulnerability 경고는 무시 (audit fix --force 금지 — Next 메이저 다운그레이드)
+npm run dev          # → http://localhost:3000
+```
+
+### 검증 / 빌드
+```bash
+npm run lint         # ESLint
+npm run build        # 프로덕션 빌드 (타입체크 + 라우트 매핑 확인)
+npm run start        # 프로덕션 서버 (build 후)
 ```
 
 ### DB 셋업
