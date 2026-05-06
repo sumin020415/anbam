@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getPost } from '@/lib/services/posts';
+import { getComments } from '@/lib/services/comments';
 import ViewCountTrigger from '@/components/post/ViewCountTrigger';
 import DeleteButton from '@/components/post/DeleteButton';
+import CommentTree from '@/components/comment/CommentTree';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,9 +30,11 @@ export default async function PostDetailPage({
   const post = await getPost(supabase, id);
   if (!post) notFound();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [comments, userResult] = await Promise.all([
+    getComments(supabase, id),
+    supabase.auth.getUser(),
+  ]);
+  const user = userResult.data.user;
   const isOwner = !!user && user.id === post.author_id;
 
   return (
@@ -73,6 +77,12 @@ export default async function PostDetailPage({
           </div>
         )}
       </article>
+
+      <CommentTree
+        postId={post.id}
+        comments={comments}
+        currentUserId={user?.id ?? null}
+      />
     </main>
   );
 }
