@@ -19,12 +19,20 @@ export type PostRow = {
 };
 
 const POST_SELECT =
-  'id, author_id, title, content, image_url, lat, lng, address, view_count, created_at, profiles(nickname)';
+  'id, author_id, title, content, image_url, lat, lng, address, view_count, created_at, profiles!posts_author_id_fkey(nickname)';
 
 function toKoreanPostError(error: {
   code?: string;
   message?: string;
+  details?: string;
+  hint?: string;
 }): string {
+  console.error('[posts] Supabase error:', {
+    code: error.code,
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+  });
   const msg = error.message ?? '';
   if (
     error.code === '42501' ||
