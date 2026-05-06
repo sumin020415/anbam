@@ -35,8 +35,9 @@
 | 👁 비밀번호 보이기/가리기 토글 (회원가입·로그인·재설정) | ✅ |
 | 🔄 비밀번호 재설정 (이메일 링크 + PKCE 콜백) | ✅ |
 | 🇰🇷 로그인 실패 메시지 한국어 매핑 | ✅ |
-| 📝 시민 제보 게시글 CRUD | ⏳ |
-| 💬 댓글 + 대댓글 (계층 구조) | ⏳ |
+| 📝 시민 제보 게시글 CRUD (목록/상세/작성/수정/삭제) | ✅ |
+| 📃 게시글 페이지네이션 ("더 보기" 방식) | ✅ |
+| 💬 댓글 + 대댓글 (계층 트리, depth 0~2 들여쓰기) | ✅ |
 | 👍👎 좋아요 / 싫어요 | ⏳ |
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 | ⏳ |
 | 📷 이미지 업로드 (Supabase Storage) | ⏳ |
@@ -110,21 +111,29 @@ Supabase SQL Editor 에서 다음을 생성:
 
 ```
 src/
-├── app/                  # Next.js App Router
-│   ├── (auth)/           # 회원가입/로그인/비밀번호 찾기·재설정 (라우트 그룹)
-│   ├── auth/callback/    # PKCE 코드 교환 (resetPasswordForEmail 등의 redirectTo)
-│   ├── (main)/           # 메인 — 헤더 공유 (홈/마이페이지/지도/게시판)
-│   └── api/              # Route Handlers
-│       └── auth/check-email/   # 이메일 중복확인 (service_role)
+├── app/                              # Next.js App Router
+│   ├── (auth)/                       # 회원가입/로그인/비밀번호 찾기·재설정 (라우트 그룹)
+│   ├── (main)/                       # 헤더 공유 (라우트 그룹)
+│   │   ├── posts/                    # 게시판
+│   │   │   ├── page.tsx              # 목록 + 페이지네이션
+│   │   │   ├── new/page.tsx          # 작성
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx          # 상세 + 댓글
+│   │   │       └── edit/page.tsx     # 수정
+│   │   └── mypage/page.tsx
+│   ├── auth/callback/                # PKCE 코드 교환 (resetPasswordForEmail 등)
+│   └── api/auth/check-email/         # 이메일 중복확인 (service_role)
 ├── components/
-│   ├── auth/             # LogoutButton 등
-│   └── layout/           # Header
-├── hooks/                # useUser (onAuthStateChange 구독)
+│   ├── post/                         # PostCard / PostList / PostForm / DeleteButton / ViewCountTrigger
+│   ├── comment/                      # CommentTree / CommentItem / CommentForm
+│   ├── auth/LogoutButton.tsx
+│   └── layout/Header.tsx
+├── hooks/                            # useUser (onAuthStateChange 구독)
 ├── lib/
-│   ├── supabase/         # 브라우저/서버 클라이언트 + admin (서버 전용)
-│   ├── schemas/          # zod 검증 스키마 (비밀번호 강도 등)
-│   └── services/         # Supabase 쿼리/뮤테이션 (RN 이식 대비)
-└── middleware.ts         # 세션 자동 갱신
+│   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
+│   ├── schemas/                      # zod (auth/post/comment)
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments)
+└── middleware.ts                     # 세션 자동 갱신 (Phase 8 에서 proxy.ts 로 rename 예정)
 ```
 
 ### 데이터 레이어 분리 원칙
