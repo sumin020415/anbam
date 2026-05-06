@@ -1,5 +1,19 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { AuthError, type SupabaseClient } from '@supabase/supabase-js';
 import type { LoginInput, SignupInput } from '@/lib/schemas/auth';
+
+function toKoreanLoginMessage(error: AuthError): string {
+  const msg = error.message ?? '';
+  if (
+    error.code === 'invalid_credentials' ||
+    /invalid login credentials/i.test(msg)
+  ) {
+    return '가입하신 이메일/비밀번호를 확인해주세요.';
+  }
+  if (error.status === 429 || /rate limit/i.test(msg)) {
+    return '잠시 후 다시 시도해주세요.';
+  }
+  return '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+}
 
 export async function signUp(client: SupabaseClient, input: SignupInput) {
   const { data, error } = await client.auth.signUp({
@@ -21,7 +35,9 @@ export async function signInWithPassword(
     email: input.email,
     password: input.password,
   });
-  if (error) throw error;
+  if (error) {
+    throw new Error(toKoreanLoginMessage(error));
+  }
   return data;
 }
 
