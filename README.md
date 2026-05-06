@@ -38,7 +38,7 @@
 | 📝 시민 제보 게시글 CRUD (목록/상세/작성/수정/삭제) | ✅ |
 | 📃 게시글 페이지네이션 ("더 보기" 방식) | ✅ |
 | 💬 댓글 + 대댓글 (계층 트리, depth 0~2 들여쓰기) | ✅ |
-| 👍👎 좋아요 / 싫어요 | ⏳ |
+| 👍👎 좋아요 / 싫어요 (복합 PK upsert, 토글/전환) | ✅ |
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 | ⏳ |
 | 📷 이미지 업로드 (Supabase Storage) | ⏳ |
 
@@ -124,7 +124,7 @@ src/
 │   ├── auth/callback/                # PKCE 코드 교환 (resetPasswordForEmail 등)
 │   └── api/auth/check-email/         # 이메일 중복확인 (service_role)
 ├── components/
-│   ├── post/                         # PostCard / PostList / PostForm / DeleteButton / ViewCountTrigger
+│   ├── post/                         # PostCard / PostList / PostForm / DeleteButton / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
 │   ├── auth/LogoutButton.tsx
 │   └── layout/Header.tsx
@@ -132,7 +132,7 @@ src/
 ├── lib/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
-│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments)
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions)
 └── middleware.ts                     # 세션 자동 갱신 (Phase 8 에서 proxy.ts 로 rename 예정)
 ```
 
