@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import {
   signupSchema,
   type SignupInput,
@@ -43,6 +44,8 @@ function Badge({ state }: { state: CheckState }) {
 export default function SignupPage() {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   // 이메일 분리 입력 상태
   const [emailLocal, setEmailLocal] = useState('');
@@ -263,14 +266,24 @@ export default function SignupPage() {
           <label htmlFor="password" className="text-sm text-ink-2">
             비밀번호
           </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="영문 + 숫자 + 특수기호 포함 8자 이상"
-            {...register('password')}
-            className="w-full rounded-anbam border border-line-1 bg-white px-4 py-3 text-ink-1 placeholder:text-ink-2 focus:outline-none focus:border-point"
-          />
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="영문 + 숫자 + 특수기호 포함 8자 이상"
+              {...register('password')}
+              className="w-full rounded-anbam border border-line-1 bg-white pl-4 pr-11 py-3 text-ink-1 placeholder:text-ink-2 focus:outline-none focus:border-point"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보이기'}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-2 hover:text-ink-1"
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
           <ul className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs">
             {PASSWORD_RULES.map((rule) => {
               const passed = rule.test(passwordValue ?? '');
@@ -294,14 +307,24 @@ export default function SignupPage() {
           <label htmlFor="passwordConfirm" className="text-sm text-ink-2">
             비밀번호 확인
           </label>
-          <input
-            id="passwordConfirm"
-            type="password"
-            autoComplete="new-password"
-            placeholder="비밀번호 재입력"
-            {...register('passwordConfirm')}
-            className="w-full rounded-anbam border border-line-1 bg-white px-4 py-3 text-ink-1 placeholder:text-ink-2 focus:outline-none focus:border-point"
-          />
+          <div className="relative">
+            <input
+              id="passwordConfirm"
+              type={showPasswordConfirm ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="비밀번호 재입력"
+              {...register('passwordConfirm')}
+              className="w-full rounded-anbam border border-line-1 bg-white pl-4 pr-11 py-3 text-ink-1 placeholder:text-ink-2 focus:outline-none focus:border-point"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPasswordConfirm((v) => !v)}
+              aria-label={showPasswordConfirm ? '비밀번호 숨기기' : '비밀번호 보이기'}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-2 hover:text-ink-1"
+            >
+              {showPasswordConfirm ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
           {passwordMismatch ? (
             <p className="text-warn text-xs">비밀번호가 일치하지 않습니다</p>
           ) : errors.passwordConfirm ? (

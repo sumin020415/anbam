@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { loginSchema, type LoginInput } from '@/lib/schemas/auth';
 import { signInWithPassword } from '@/lib/services/auth';
 import { createClient } from '@/lib/supabase/client';
@@ -14,6 +15,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const justSignedUp = searchParams.get('signed_up') === '1';
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -71,13 +73,23 @@ function LoginForm() {
         <label htmlFor="password" className="text-sm text-ink-2">
           비밀번호
         </label>
-        <input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          {...register('password')}
-          className="w-full rounded-anbam border border-line-1 bg-white px-4 py-3 text-ink-1 placeholder:text-ink-2 focus:outline-none focus:border-point"
-        />
+        <div className="relative">
+          <input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            {...register('password')}
+            className="w-full rounded-anbam border border-line-1 bg-white pl-4 pr-11 py-3 text-ink-1 placeholder:text-ink-2 focus:outline-none focus:border-point"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보이기'}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-2 hover:text-ink-1"
+          >
+            {showPassword ? <FiEyeOff /> : <FiEye />}
+          </button>
+        </div>
         {errors.password && (
           <p className="text-warn text-xs">{errors.password.message}</p>
         )}
