@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { getPostList } from '@/lib/services/posts';
-import PostCard from '@/components/post/PostCard';
+import PostList, { POSTS_PAGE_SIZE } from '@/components/post/PostList';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +10,7 @@ export default async function PostsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const posts = await getPostList(supabase, { limit: 30 });
+  const posts = await getPostList(supabase, { limit: POSTS_PAGE_SIZE });
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8">
@@ -51,13 +51,7 @@ export default async function PostsPage() {
           )}
         </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {posts.map((post) => (
-            <li key={post.id}>
-              <PostCard post={post} />
-            </li>
-          ))}
-        </ul>
+        <PostList initial={posts} />
       )}
     </main>
   );
