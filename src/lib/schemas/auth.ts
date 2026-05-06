@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const passwordRule = z
+export const passwordRule = z
   .string()
   .min(8, { message: '비밀번호는 8자 이상' })
   .max(72, { message: '비밀번호는 72자 이하' })
@@ -31,6 +31,26 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email({ message: '올바른 이메일을 입력하세요' }),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    password: passwordRule,
+    passwordConfirm: z
+      .string()
+      .min(1, { message: '비밀번호를 한 번 더 입력하세요' }),
+  })
+  .refine((d) => d.password === d.passwordConfirm, {
+    path: ['passwordConfirm'],
+    message: '비밀번호가 일치하지 않습니다',
+  });
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export const PASSWORD_RULES = [
   { key: 'length', label: '8자 이상', test: (v: string) => v.length >= 8 },

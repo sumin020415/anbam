@@ -110,6 +110,15 @@ function LoginForm() {
       </button>
 
       <p className="text-center text-sm text-ink-2">
+        <Link
+          href="/forgot-password"
+          className="font-bold text-ink-1 underline"
+        >
+          비밀번호를 잊으셨나요?
+        </Link>
+      </p>
+
+      <p className="text-center text-sm text-ink-2">
         아직 계정이 없으신가요?{' '}
         <Link href="/signup" className="font-bold text-ink-1 underline">
           회원가입
