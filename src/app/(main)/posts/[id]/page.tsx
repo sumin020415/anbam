@@ -3,8 +3,13 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getPost } from '@/lib/services/posts';
 import { getComments } from '@/lib/services/comments';
+import {
+  getReactionCounts,
+  getMyReaction,
+} from '@/lib/services/reactions';
 import ViewCountTrigger from '@/components/post/ViewCountTrigger';
 import DeleteButton from '@/components/post/DeleteButton';
+import ReactionButtons from '@/components/post/ReactionButtons';
 import CommentTree from '@/components/comment/CommentTree';
 
 export const dynamic = 'force-dynamic';
@@ -30,9 +35,11 @@ export default async function PostDetailPage({
   const post = await getPost(supabase, id);
   if (!post) notFound();
 
-  const [comments, userResult] = await Promise.all([
+  const [comments, userResult, reactionCounts, myReaction] = await Promise.all([
     getComments(supabase, id),
     supabase.auth.getUser(),
+    getReactionCounts(supabase, id),
+    getMyReaction(supabase, id),
   ]);
   const user = userResult.data.user;
   const isOwner = !!user && user.id === post.author_id;
@@ -63,6 +70,15 @@ export default async function PostDetailPage({
 
         <div className="mt-6 whitespace-pre-wrap text-base text-ink-1 leading-relaxed">
           {post.content}
+        </div>
+
+        <div className="mt-6 flex justify-center">
+          <ReactionButtons
+            postId={post.id}
+            initialCounts={reactionCounts}
+            initialMine={myReaction}
+            isLoggedIn={!!user}
+          />
         </div>
 
         {isOwner && (

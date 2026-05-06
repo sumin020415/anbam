@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { getPostList } from '@/lib/services/posts';
-import PostList, { POSTS_PAGE_SIZE } from '@/components/post/PostList';
+import { getPostList, POSTS_PAGE_SIZE } from '@/lib/services/posts';
+import PostList from '@/components/post/PostList';
 
 export const dynamic = 'force-dynamic';
 

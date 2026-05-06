@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { getPostList, type PostRow } from '@/lib/services/posts';
+import {
+  getPostList,
+  POSTS_PAGE_SIZE,
+  type PostRow,
+} from '@/lib/services/posts';
 import { createClient } from '@/lib/supabase/client';
 import PostCard from './PostCard';
-
-export const POSTS_PAGE_SIZE = 20;
 
 type Props = {
   initial: PostRow[];

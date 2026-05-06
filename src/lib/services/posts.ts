@@ -18,6 +18,8 @@ export type PostRow = {
   profiles: { nickname: string | null } | null;
 };
 
+export const POSTS_PAGE_SIZE = 20;
+
 const POST_SELECT =
   'id, author_id, title, content, image_url, lat, lng, address, view_count, created_at, profiles!posts_author_id_fkey(nickname)';
 
@@ -50,7 +52,7 @@ export async function getPostList(
   client: SupabaseClient,
   opts: { limit?: number; offset?: number } = {},
 ): Promise<PostRow[]> {
-  const { limit = 20, offset = 0 } = opts;
+  const { limit = POSTS_PAGE_SIZE, offset = 0 } = opts;
   const { data, error } = await client
     .from('posts')
     .select(POST_SELECT)
