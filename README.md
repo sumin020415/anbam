@@ -15,7 +15,7 @@
 | Framework | Next.js 16 (App Router, Turbopack) |
 | Language | TypeScript |
 | Style | Tailwind CSS v4 (`@theme` CSS-first config) |
-| Auth | Supabase Auth (HttpOnly 쿠키 세션) |
+| Auth | Supabase Auth (HttpOnly 쿠키 세션, PKCE 흐름) |
 | Database | Supabase (PostgreSQL + RLS) |
 | Storage | Supabase Storage |
 | Map | Kakao Map JS SDK |
@@ -32,6 +32,9 @@
 | 🔐 회원가입 / 로그인 (Supabase Auth) | ✅ |
 | 👤 마이페이지 + 헤더 네비게이션 | ✅ |
 | ✍️ 회원가입 폼 강화 (도메인 select, 이메일/닉네임 중복확인, 비밀번호 강도/확인) | ✅ |
+| 👁 비밀번호 보이기/가리기 토글 (회원가입·로그인·재설정) | ✅ |
+| 🔄 비밀번호 재설정 (이메일 링크 + PKCE 콜백) | ✅ |
+| 🇰🇷 로그인 실패 메시지 한국어 매핑 | ✅ |
 | 📝 시민 제보 게시글 CRUD | ⏳ |
 | 💬 댓글 + 대댓글 (계층 구조) | ⏳ |
 | 👍👎 좋아요 / 싫어요 | ⏳ |
@@ -87,6 +90,20 @@ Supabase SQL Editor 에서 다음을 생성:
 
 > 통합 SQL 파일은 `docs/schema.sql` 로 정리 예정 (Phase 9).
 
+### Supabase URL Configuration (인증 메일 링크용)
+
+비밀번호 재설정 등 이메일 링크 흐름이 정상 동작하려면 대시보드에서 Site URL 과 Redirect URLs 를 등록해야 합니다.
+
+**Authentication → URL Configuration**
+- **Site URL**: `https://anbam.vercel.app` (또는 자신의 배포 도메인)
+- **Redirect URLs** (와일드카드 권장):
+  ```
+  https://anbam.vercel.app/**
+  http://localhost:3000/**
+  ```
+
+> Redirect URLs 화이트리스트에 매칭 안 되면 Supabase 가 보안상 `redirectTo` 를 무시하고 Site URL 로 fallback 합니다. 메일 링크가 엉뚱한 도메인/경로로 떨어진다면 99% 이 설정 누락.
+
 ---
 
 ## 📂 Project Structure
@@ -94,7 +111,8 @@ Supabase SQL Editor 에서 다음을 생성:
 ```
 src/
 ├── app/                  # Next.js App Router
-│   ├── (auth)/           # 회원가입/로그인 (라우트 그룹)
+│   ├── (auth)/           # 회원가입/로그인/비밀번호 찾기·재설정 (라우트 그룹)
+│   ├── auth/callback/    # PKCE 코드 교환 (resetPasswordForEmail 등의 redirectTo)
 │   ├── (main)/           # 메인 — 헤더 공유 (홈/마이페이지/지도/게시판)
 │   └── api/              # Route Handlers
 │       └── auth/check-email/   # 이메일 중복확인 (service_role)
@@ -145,4 +163,5 @@ MIT (코드 한정). 스크린샷·콘텐츠는 개인 저작물.
 
 ## 📬 Contact
 
-idkhs05@gmail.com · [GitHub](https://github.com/sumin020415) · [Portfolio](https://github.com/sumin020415/portfolio)
+sumin0759@kakao.com
+[GitHub](https://github.com/sumin020415) · [Portfolio](https://github.com/sumin020415/portfolio)
