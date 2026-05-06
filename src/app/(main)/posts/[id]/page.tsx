@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getPost } from '@/lib/services/posts';
 import ViewCountTrigger from '@/components/post/ViewCountTrigger';
+import DeleteButton from '@/components/post/DeleteButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,7 @@ export default async function PostDetailPage({
             >
               수정
             </Link>
+            <DeleteButton postId={post.id} />
           </div>
         )}
       </article>
