@@ -4,18 +4,43 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { MapMarker } from 'react-kakao-maps-sdk';
 import {
   postCreateSchema,
   type PostCreateInput,
 } from '@/lib/schemas/post';
 import { createPost, updatePost } from '@/lib/services/posts';
 import { createClient } from '@/lib/supabase/client';
+import KakaoMap from '@/components/map/KakaoMap';
 
 type Props = {
   mode: 'create' | 'edit';
   postId?: string;
   initial?: PostCreateInput;
 };
+
+function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.kakao?.maps?.services) {
+      resolve(null);
+      return;
+    }
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    geocoder.coord2Address(lng, lat, (result, status) => {
+      if (
+        status !== window.kakao.maps.services.Status.OK ||
+        !result?.[0]
+      ) {
+        resolve(null);
+        return;
+      }
+      const r = result[0];
+      const road = r.road_address?.address_name;
+      const jibun = r.address?.address_name;
+      resolve(road ?? jibun ?? null);
+    });
+  });
+}
 
 export default function PostForm({ mode, postId, initial }: Props) {
   const router = useRouter();
@@ -24,11 +49,38 @@ export default function PostForm({ mode, postId, initial }: Props) {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<PostCreateInput>({
     resolver: zodResolver(postCreateSchema),
-    defaultValues: initial ?? { title: '', content: '' },
+    defaultValues:
+      initial ?? {
+        title: '',
+        content: '',
+        lat: null,
+        lng: null,
+        address: null,
+      },
   });
+
+  const lat = watch('lat');
+  const lng = watch('lng');
+  const address = watch('address');
+  const hasLocation = lat != null && lng != null;
+
+  const handleMapClick = async (latLng: { lat: number; lng: number }) => {
+    setValue('lat', latLng.lat, { shouldDirty: true });
+    setValue('lng', latLng.lng, { shouldDirty: true });
+    const addr = await reverseGeocode(latLng.lat, latLng.lng);
+    setValue('address', addr, { shouldDirty: true });
+  };
+
+  const handleClearLocation = () => {
+    setValue('lat', null, { shouldDirty: true });
+    setValue('lng', null, { shouldDirty: true });
+    setValue('address', null, { shouldDirty: true });
+  };
 
   const onSubmit = async (input: PostCreateInput) => {
     setSubmitError(null);
@@ -86,6 +138,36 @@ export default function PostForm({ mode, postId, initial }: Props) {
         />
         {errors.content && (
           <p className="text-warn text-xs">{errors.content.message}</p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-sm text-ink-2">
+            위치{' '}
+            <span className="text-xs text-ink-2">(지도 클릭, 선택)</span>
+          </label>
+          {hasLocation && (
+            <button
+              type="button"
+              onClick={handleClearLocation}
+              className="text-xs text-ink-2 underline"
+            >
+              위치 지우기
+            </button>
+          )}
+        </div>
+        <div className="h-72 w-full overflow-hidden rounded-anbam border border-line-1">
+          <KakaoMap
+            center={hasLocation ? { lat, lng } : undefined}
+            level={hasLocation ? 4 : undefined}
+            onClick={handleMapClick}
+          >
+            {hasLocation && <MapMarker position={{ lat, lng }} />}
+          </KakaoMap>
+        </div>
+        {address && (
+          <p className="text-xs text-ink-2">📍 {address}</p>
         )}
       </div>
 

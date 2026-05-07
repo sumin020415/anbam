@@ -31,7 +31,13 @@ export default async function EditPostPage({
       <PostForm
         mode="edit"
         postId={id}
-        initial={{ title: post.title, content: post.content }}
+        initial={{
+          title: post.title,
+          content: post.content,
+          lat: post.lat,
+          lng: post.lng,
+          address: post.address,
+        }}
       />
     </main>
   );

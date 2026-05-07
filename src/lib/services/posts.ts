@@ -92,6 +92,9 @@ export async function createPost(
       author_id: user.id,
       title: input.title,
       content: input.content,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
+      address: input.address ?? null,
     })
     .select('id')
     .single();
@@ -106,7 +109,13 @@ export async function updatePost(
 ): Promise<void> {
   const { error } = await client
     .from('posts')
-    .update({ title: input.title, content: input.content })
+    .update({
+      title: input.title,
+      content: input.content,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
+      address: input.address ?? null,
+    })
     .eq('id', id);
   if (error) throw new Error(toKoreanPostError(error));
 }
