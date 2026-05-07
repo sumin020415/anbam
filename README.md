@@ -18,7 +18,7 @@
 | Auth | Supabase Auth (HttpOnly 쿠키 세션, PKCE 흐름) |
 | Database | Supabase (PostgreSQL + RLS) |
 | Storage | Supabase Storage |
-| Map | Kakao Map JS SDK |
+| Map | Kakao Map JS SDK + react-kakao-maps-sdk |
 | Form | React Hook Form + Zod |
 | Hosting | Vercel (main 푸시 시 자동 배포) |
 
@@ -39,7 +39,8 @@
 | 📃 게시글 페이지네이션 ("더 보기" 방식) | ✅ |
 | 💬 댓글 + 대댓글 (계층 트리, depth 0~2 들여쓰기) | ✅ |
 | 👍👎 좋아요 / 싫어요 (복합 PK upsert, 토글/전환) | ✅ |
-| 🗺 Kakao Map + CCTV/보안등/제보 핀 | ⏳ |
+| 🗺 Kakao Map + CCTV/보안등/제보 핀 (종류별 색 + InfoWindow) | ✅ |
+| 📍 게시글 위치 picker (지도 클릭 → 좌표/주소 자동 채움) | ✅ |
 | 📷 이미지 업로드 (Supabase Storage) | ⏳ |
 
 ---
@@ -124,15 +125,16 @@ src/
 │   ├── auth/callback/                # PKCE 코드 교환 (resetPasswordForEmail 등)
 │   └── api/auth/check-email/         # 이메일 중복확인 (service_role)
 ├── components/
-│   ├── post/                         # PostCard / PostList / PostForm / DeleteButton / ViewCountTrigger / ReactionButtons
+│   ├── post/                         # PostCard / PostList / PostForm (위치 picker 포함) / DeleteButton / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
+│   ├── map/                          # KakaoMap (래퍼) / MapHome (메인 홈) / MapPin (종류별 색 + InfoWindow)
 │   ├── auth/LogoutButton.tsx
 │   └── layout/Header.tsx
 ├── hooks/                            # useUser (onAuthStateChange 구독)
 ├── lib/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
-│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions)
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins)
 └── middleware.ts                     # 세션 자동 갱신 (Phase 8 에서 proxy.ts 로 rename 예정)
 ```
 
