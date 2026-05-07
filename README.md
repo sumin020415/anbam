@@ -115,6 +115,7 @@ src/
 ├── app/                              # Next.js App Router
 │   ├── (auth)/                       # 회원가입/로그인/비밀번호 찾기·재설정 (라우트 그룹)
 │   ├── (main)/                       # 헤더 공유 (라우트 그룹)
+│   │   ├── page.tsx                  # 지도 메인 (CCTV/보안등/제보 핀)
 │   │   ├── posts/                    # 게시판
 │   │   │   ├── page.tsx              # 목록 + 페이지네이션
 │   │   │   ├── new/page.tsx          # 작성
