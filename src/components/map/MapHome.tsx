@@ -51,41 +51,61 @@ export default function MapHome({ cctvPins, lampPins, postPins }: Props) {
       {active && (
         <MapInfoWindow
           position={{ lat: active.data.lat, lng: active.data.lng }}
-          removable
-          onCloseClick={() => setActive(null)}
         >
-          <PinInfoCard active={active} />
+          <PinInfoCard active={active} onClose={() => setActive(null)} />
         </MapInfoWindow>
       )}
     </KakaoMap>
   );
 }
 
-function PinInfoCard({ active }: { active: ActivePin }) {
+function PinInfoCard({
+  active,
+  onClose,
+}: {
+  active: ActivePin;
+  onClose: () => void;
+}) {
+  return (
+    <div className="relative min-w-[160px] max-w-[220px] px-3 py-2 pr-7 text-sm text-ink-1">
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="닫기"
+        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded text-ink-2 hover:bg-line-2"
+      >
+        ×
+      </button>
+      <PinInfoBody active={active} />
+    </div>
+  );
+}
+
+function PinInfoBody({ active }: { active: ActivePin }) {
   if (active.kind === 'cctv') {
     const p = active.data;
     const place = [p.district, p.dong].filter(Boolean).join(' ');
     return (
-      <div className="min-w-[140px] px-3 py-2 text-sm text-ink-1">
+      <>
         <p className="font-bold">CCTV</p>
         {place && <p className="text-xs text-ink-2">{place}</p>}
         {p.purpose && <p className="text-xs">{p.purpose}</p>}
-      </div>
+      </>
     );
   }
   if (active.kind === 'lamp') {
     const p = active.data;
     const place = [p.district, p.dong].filter(Boolean).join(' ');
     return (
-      <div className="min-w-[140px] px-3 py-2 text-sm text-ink-1">
+      <>
         <p className="font-bold">보안등</p>
         {place && <p className="text-xs text-ink-2">{place}</p>}
-      </div>
+      </>
     );
   }
   const p = active.data;
   return (
-    <div className="min-w-[160px] max-w-[220px] px-3 py-2 text-sm text-ink-1">
+    <>
       <p className="line-clamp-2 font-bold">{p.title}</p>
       <Link
         href={`/posts/${p.id}`}
@@ -93,6 +113,6 @@ function PinInfoCard({ active }: { active: ActivePin }) {
       >
         상세 보기 →
       </Link>
-    </div>
+    </>
   );
 }
