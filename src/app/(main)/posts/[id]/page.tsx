@@ -68,6 +68,17 @@ export default async function PostDetailPage({
           </span>
         </div>
 
+        {post.image_url && (
+          <div className="mt-6 overflow-hidden rounded-anbam border border-line-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={post.image_url}
+              alt=""
+              className="w-full max-h-[60vh] object-contain bg-line-2"
+            />
+          </div>
+        )}
+
         <div className="mt-6 whitespace-pre-wrap text-base text-ink-1 leading-relaxed">
           {post.content}
         </div>
