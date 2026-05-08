@@ -37,6 +37,7 @@ export default async function EditPostPage({
           lat: post.lat,
           lng: post.lng,
           address: post.address,
+          image_url: post.image_url,
         }}
       />
     </main>

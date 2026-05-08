@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +10,7 @@ import {
   type PostCreateInput,
 } from '@/lib/schemas/post';
 import { createPost, updatePost } from '@/lib/services/posts';
+import { uploadPostImage } from '@/lib/services/storage';
 import { createClient } from '@/lib/supabase/client';
 import KakaoMap from '@/components/map/KakaoMap';
 
@@ -18,6 +19,8 @@ type Props = {
   postId?: string;
   initial?: PostCreateInput;
 };
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   return new Promise((resolve) => {
@@ -45,6 +48,11 @@ function reverseGeocode(lat: number, lng: number): Promise<string | null> {
 export default function PostForm({ mode, postId, initial }: Props) {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    initial?.image_url ?? null,
+  );
 
   const {
     register,
@@ -61,6 +69,7 @@ export default function PostForm({ mode, postId, initial }: Props) {
         lat: null,
         lng: null,
         address: null,
+        image_url: null,
       },
   });
 
@@ -68,6 +77,31 @@ export default function PostForm({ mode, postId, initial }: Props) {
   const lng = watch('lng');
   const address = watch('address');
   const hasLocation = lat != null && lng != null;
+
+  useEffect(() => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const handlePickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError(null);
+    const picked = e.target.files?.[0] ?? null;
+    if (!picked) return;
+    if (picked.size > MAX_IMAGE_BYTES) {
+      setImageError('이미지는 5MB 이하만 업로드 가능합니다.');
+      e.target.value = '';
+      return;
+    }
+    setFile(picked);
+  };
+
+  const handleRemoveImage = () => {
+    setFile(null);
+    setPreviewUrl(null);
+    setImageError(null);
+  };
 
   const handleMapClick = async (latLng: { lat: number; lng: number }) => {
     setValue('lat', latLng.lat, { shouldDirty: true });
@@ -84,14 +118,26 @@ export default function PostForm({ mode, postId, initial }: Props) {
 
   const onSubmit = async (input: PostCreateInput) => {
     setSubmitError(null);
+    setImageError(null);
     try {
       const client = createClient();
+
+      let image_url: string | null = null;
+      if (file) {
+        const uploaded = await uploadPostImage(client, file);
+        image_url = uploaded.url;
+      } else if (mode === 'edit' && previewUrl) {
+        image_url = previewUrl;
+      }
+
+      const payload = { ...input, image_url };
+
       if (mode === 'edit' && postId) {
-        await updatePost(client, postId, input);
+        await updatePost(client, postId, payload);
         router.push(`/posts/${postId}`);
         router.refresh();
       } else {
-        const { id } = await createPost(client, input);
+        const { id } = await createPost(client, payload);
         router.push(`/posts/${id}`);
         router.refresh();
       }
@@ -138,6 +184,38 @@ export default function PostForm({ mode, postId, initial }: Props) {
         />
         {errors.content && (
           <p className="text-warn text-xs">{errors.content.message}</p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm text-ink-2">
+          이미지 <span className="text-xs text-ink-2">(선택, 1장, 최대 5MB)</span>
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handlePickFile}
+          className="block text-sm text-ink-2 file:mr-3 file:rounded-anbam file:border file:border-line-1 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-ink-1 hover:file:bg-line-2"
+        />
+        {previewUrl && (
+          <div className="relative inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt="이미지 미리보기"
+              className="max-h-72 rounded-anbam border border-line-1"
+            />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="absolute right-2 top-2 rounded-anbam bg-white/90 px-2 py-1 text-xs font-bold text-ink-1 shadow-card"
+            >
+              제거
+            </button>
+          </div>
+        )}
+        {imageError && (
+          <p className="text-warn text-xs">{imageError}</p>
         )}
       </div>
 
