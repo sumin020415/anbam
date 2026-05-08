@@ -3,6 +3,7 @@ import type {
   PostCreateInput,
   PostUpdateInput,
 } from '@/lib/schemas/post';
+import { deletePostImage } from './storage';
 
 export type PostRow = {
   id: string;
@@ -95,6 +96,7 @@ export async function createPost(
       lat: input.lat ?? null,
       lng: input.lng ?? null,
       address: input.address ?? null,
+      image_url: input.image_url ?? null,
     })
     .select('id')
     .single();
@@ -107,6 +109,15 @@ export async function updatePost(
   id: string,
   input: PostUpdateInput,
 ): Promise<void> {
+  const { data: prev } = await client
+    .from('posts')
+    .select('image_url')
+    .eq('id', id)
+    .maybeSingle();
+
+  const newImageUrl = input.image_url ?? null;
+  const oldImageUrl = (prev?.image_url as string | null | undefined) ?? null;
+
   const { error } = await client
     .from('posts')
     .update({
@@ -115,17 +126,33 @@ export async function updatePost(
       lat: input.lat ?? null,
       lng: input.lng ?? null,
       address: input.address ?? null,
+      image_url: newImageUrl,
     })
     .eq('id', id);
   if (error) throw new Error(toKoreanPostError(error));
+
+  if (oldImageUrl && oldImageUrl !== newImageUrl) {
+    await deletePostImage(client, oldImageUrl);
+  }
 }
 
 export async function deletePost(
   client: SupabaseClient,
   id: string,
 ): Promise<void> {
+  const { data: prev } = await client
+    .from('posts')
+    .select('image_url')
+    .eq('id', id)
+    .maybeSingle();
+
   const { error } = await client.from('posts').delete().eq('id', id);
   if (error) throw new Error(toKoreanPostError(error));
+
+  const oldImageUrl = (prev?.image_url as string | null | undefined) ?? null;
+  if (oldImageUrl) {
+    await deletePostImage(client, oldImageUrl);
+  }
 }
 
 export async function incrementViewCount(

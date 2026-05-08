@@ -26,6 +26,11 @@ export const postCreateSchema = z.object({
     .max(200, { message: '주소는 200자 이하' })
     .nullable()
     .optional(),
+  image_url: z
+    .string()
+    .max(500, { message: '이미지 URL 이 너무 깁니다' })
+    .nullable()
+    .optional(),
 });
 
 export type PostCreateInput = z.infer<typeof postCreateSchema>;
