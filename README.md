@@ -41,7 +41,7 @@
 | 👍👎 좋아요 / 싫어요 (복합 PK upsert, 토글/전환) | ✅ |
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 (종류별 색 + InfoWindow) | ✅ |
 | 📍 게시글 위치 picker (지도 클릭 → 좌표/주소 자동 채움) | ✅ |
-| 📷 이미지 업로드 (Supabase Storage) | ⏳ |
+| 📷 이미지 업로드 (Supabase Storage, 글당 1장, 5MB 제한) | ✅ |
 
 ---
 
@@ -126,7 +126,7 @@ src/
 │   ├── auth/callback/                # PKCE 코드 교환 (resetPasswordForEmail 등)
 │   └── api/auth/check-email/         # 이메일 중복확인 (service_role)
 ├── components/
-│   ├── post/                         # PostCard / PostList / PostForm (위치 picker 포함) / DeleteButton / ViewCountTrigger / ReactionButtons
+│   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드) / DeleteButton / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
 │   ├── map/                          # KakaoMap (래퍼) / MapHome (메인 홈) / MapPin (종류별 색 + InfoWindow)
 │   ├── auth/LogoutButton.tsx
@@ -135,7 +135,7 @@ src/
 ├── lib/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
-│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins)
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins/storage)
 └── middleware.ts                     # 세션 자동 갱신 (Phase 8 에서 proxy.ts 로 rename 예정)
 ```
 
