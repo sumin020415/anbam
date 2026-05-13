@@ -1,10 +1,9 @@
 # 안밤 (ANBAM) — 부산 안전 정보 시민 커뮤니티
 
-> Java/Spring Boot 로 만든 팀 프로젝트(2주, 4인)를 풀스택 TypeScript + Supabase 로 1인 재구현한 사이드 프로젝트.
+> Java/Spring Boot 로 만든 팀 (2주, 4인) 프로젝트를 풀스택 TypeScript + Supabase 로 1인 재구현한 사이드 프로젝트.
 
 🔗 **Live Demo** : https://anbam.vercel.app
 📖 **개발 로그 (Notion)** : _(정리 중 — 게시 예정)_
-🧑‍💻 **원본 (Java/Spring 팀 프로젝트)** : https://github.com/sumin020415/project_2
 
 ---
 
@@ -160,7 +159,7 @@ src/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
 │   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins/storage)
-└── middleware.ts                     # 세션 자동 갱신 (Phase 8 에서 proxy.ts 로 rename 예정)
+└── proxy.ts                          # 세션 자동 갱신 (Next.js 16, `export async function proxy(req)` + matcher config)
 
 scripts/
 └── seed-pins.ts                      # 부산 CCTV/보안등 시드 (data.go.kr, streaming INSERT)
@@ -199,8 +198,70 @@ scripts/
 | `@RestController` | `app/api/[resource]/route.ts` |
 | `@Service` | `lib/services/*.ts` |
 | `JpaRepository` | `supabase.from('...').select(...)` |
-| `SecurityConfig` + `JwtUtil` | Supabase Auth + RLS + middleware |
+| `SecurityConfig` + `JwtUtil` | Supabase Auth + RLS + proxy.ts |
 | Oracle | Supabase PostgreSQL |
+
+---
+
+## 🚀 Roadmap
+
+현재까지는 **포트폴리오 라이브 데모** 가 목표. 단계별 확장 계획:
+
+### 단기 (Phase 7.5 ~ Phase 9)
+
+| 항목 | 내용 |
+|------|------|
+| 🔁 CCTV 시드 보강 | 페이지 실패 skip 패턴 적용된 시드 재실행 → 부산 ~14,000 row 확보 |
+| 💡 보안등 데이터 보강 | `data.busan.go.kr` 부산광역시 자체 포털 또는 시·구별 OpenAPI 조사 |
+| 📊 통합 SQL | `docs/schema.sql` — 6 테이블 + RLS + 트리거 통합본 (DB 재현 가이드) |
+| 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본), 포트폴리오 사이트 카드 추가 |
+
+### 중기 (실사용 가능한 사이트로 확장)
+
+| 항목 | 내용 |
+|------|------|
+| 🔔 알림 | Web Push (브라우저) — 본인 동선 근처 신규 제보 시 알림 |
+| 🤖 데이터 자동 갱신 | Vercel Cron 또는 Supabase Edge Function — 월/주 단위 시드 자동 실행 |
+| 🛡 신고 처리 | 부적절 제보 신고 → 관리자 검토 → soft delete (현재는 본인 삭제만) |
+| 🏷 카테고리/필터 | 제보 종류 (사고/시설고장/조명불량 등) + 지도에서 카테고리별 핀 토글 |
+| 🔍 검색 | 게시글 전문 검색 (PostgreSQL `tsvector` 또는 Supabase Search) |
+| 📈 통계 | 자치구별 안전 인프라 분포 + 시간대별 제보 트렌드 차트 |
+| ♿ 접근성 | 스크린리더/키보드 네비게이션 보강, 색약 대응 (현재 빨간/노란/라임 핀 구분 강화) |
+| 🌗 다크 모드 | 토스/카카오 무드 다크 토큰 추가 (디자인 토큰 시스템 활용) |
+
+### 장기 (지역 확장)
+
+| 항목 | 내용 |
+|------|------|
+| 🌏 전국 확대 | 부산 한정 필터 제거 + viewport bbox 동적 fetch (`lat.gte/lte`, `lng.gte/lte`) |
+| ⚡ 성능 최적화 | `cctvs(lat, lng)` 공간 인덱스 + 페이지네이션, 클러스터 마커 |
+| 🗺 시도별 진입 | URL 파라미터 `?region=busan|seoul|daegu` 또는 메인 페이지에서 시도 선택 |
+| 📊 시도별 통계 | 16개 시도별 안전 인프라 비교 대시보드 |
+
+### 모바일 앱으로 확장
+
+| 항목 | 내용 |
+|------|------|
+| 📱 React Native (Expo) | `lib/services/*.ts` + `lib/schemas/*.ts` 그대로 재사용 (RN 이식 대비 설계됨) |
+| 🔐 Supabase Auth | 토큰 기반 (PKCE 그대로) — 모바일도 같은 사용자 풀 |
+| 🗺 네이티브 지도 | `react-native-kakao-maps` 또는 `react-native-maps` (Google) — 웹과 같은 핀/InfoWindow 패턴 유지 |
+| 📍 GPS 기반 | 사용자 현재 위치 자동 감지 + 주변 인프라 자동 fetch |
+| 🔔 푸시 알림 | Expo Notifications — 내 동선 근처 신규 제보 푸시 |
+| 🏗 단일 백엔드 | 웹 + 모바일이 같은 Supabase + RLS — 두플 프로젝트의 "단일 백엔드 + 다중 클라이언트" 패턴 |
+
+---
+
+## 🏗 데이터 레이어 분리 원칙 (RN 이식 대비)
+
+컴포넌트/페이지는 **`supabase.from(...)` 을 직접 호출하지 않음.**
+
+```
+React Native (미래) ┐
+                    ├──> lib/services/*.ts  ──> Supabase
+Next.js (현재)     ┘    (RN 그대로 이식)
+```
+
+→ `services / schemas` 폴더는 플랫폼 독립적. 웹/모바일 공유 가능.
 
 ---
 
