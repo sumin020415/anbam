@@ -85,12 +85,18 @@ npm run start        # 프로덕션 서버 (build 후)
 ```
 
 ### DB 셋업
-Supabase SQL Editor 에서 다음을 생성:
-- 테이블 6개: `profiles / posts / comments / reactions / cctvs / lamps`
-- RLS 정책 (조회 공개, 쓰기는 본인만)
-- `auth.users` → `profiles` 자동 생성 트리거
 
-> 통합 SQL 파일은 `docs/schema.sql` 로 정리 예정 (Phase 9).
+통합 스키마 파일 [`docs/schema.sql`](docs/schema.sql) 한 번에 실행:
+
+1. **Storage 버킷 사전 생성** (Dashboard → Storage)
+   - Name: `post-images` / Public: ON / File size limit: 5MB / Allowed MIME: `image/*`
+2. **SQL Editor 에서 `docs/schema.sql` 전체 실행** — 다음이 한 번에 생성됩니다:
+   - 테이블 6개: `profiles / posts / comments / reactions / cctvs / lamps`
+   - RLS 정책 (조회 공개, 쓰기는 본인만)
+   - `auth.users` → `profiles` 자동 생성 트리거 (`handle_new_user`)
+   - Storage 정책 (`post-images` 버킷 — `{user.id}/{uuid}.{ext}` path 패턴)
+
+> 모든 `create` 문은 `if not exists`, 정책은 `drop policy if exists ...; create policy ...` 패턴이라 재실행 안전합니다.
 
 ### Phase 7 — 부산 CCTV/보안등 시드 (선택, 공공데이터)
 
@@ -213,7 +219,6 @@ scripts/
 |------|------|
 | 🔁 CCTV 시드 보강 | 페이지 실패 skip 패턴 적용된 시드 재실행 → 부산 ~14,000 row 확보 |
 | 💡 보안등 데이터 보강 | `data.busan.go.kr` 부산광역시 자체 포털 또는 시·구별 OpenAPI 조사 |
-| 📊 통합 SQL | `docs/schema.sql` — 6 테이블 + RLS + 트리거 통합본 (DB 재현 가이드) |
 | 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본), 포트폴리오 사이트 카드 추가 |
 
 ### 중기 (실사용 가능한 사이트로 확장)
