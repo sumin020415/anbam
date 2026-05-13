@@ -42,6 +42,7 @@
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 (종류별 색 + InfoWindow) | ✅ |
 | 📍 게시글 위치 picker (지도 클릭 → 좌표/주소 자동 채움) | ✅ |
 | 📷 이미지 업로드 (Supabase Storage, 글당 1장, 5MB 제한) | ✅ |
+| 🎥 부산 CCTV/보안등 시드 스크립트 (data.go.kr 공공데이터) | ✅ |
 
 ---
 
@@ -92,6 +93,29 @@ Supabase SQL Editor 에서 다음을 생성:
 
 > 통합 SQL 파일은 `docs/schema.sql` 로 정리 예정 (Phase 9).
 
+### Phase 7 — 부산 CCTV/보안등 시드 (선택, 공공데이터)
+
+`cctvs / lamps` 테이블을 채우려면 data.go.kr 인증키 발급 후:
+
+```bash
+# 1) data.go.kr 활용신청 (자동승인, 5분)
+#    - 행정안전부_CCTV정보 조회서비스
+#    - 전국보안등정보표준데이터
+
+# 2) .env.local 에 추가 (⚠️ NEXT_PUBLIC_ 금지)
+echo "KOREA_DATA_API_KEY=발급받은_Decoding_키" >> .env.local
+
+# 3) 시드 실행 (로컬 1회, 30~60분 소요)
+npm run seed -- --target=cctv --dry-run --max-pages=3  # 검증
+npm run seed -- --target=cctv                          # 부산 CCTV
+npm run seed -- --target=lamp --max-pages=1            # 부산 보안등
+```
+
+시드 스크립트 (`scripts/seed-pins.ts`) 특징:
+- streaming INSERT (chunk 500) — 중간 실패 시 부분 보존
+- HTTP 5xx 자동 retry (5회) + 페이지 실패 skip (연속 10회 한도)
+- 부산 row 만 클라이언트 측 필터 (주소 prefix 매칭)
+
 ### Supabase URL Configuration (인증 메일 링크용)
 
 비밀번호 재설정 등 이메일 링크 흐름이 정상 동작하려면 대시보드에서 Site URL 과 Redirect URLs 를 등록해야 합니다.
@@ -137,7 +161,20 @@ src/
 │   ├── schemas/                      # zod (auth/post/comment)
 │   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins/storage)
 └── middleware.ts                     # 세션 자동 갱신 (Phase 8 에서 proxy.ts 로 rename 예정)
+
+scripts/
+└── seed-pins.ts                      # 부산 CCTV/보안등 시드 (data.go.kr, streaming INSERT)
 ```
+
+### 데이터 소스 (Phase 7 — 2026-05-13 기준)
+
+| 종류 | 출처 | 수정/기준일 | 부산 row |
+|------|------|------------|---------|
+| CCTV | 행정안전부_CCTV정보 조회서비스 (data.go.kr, OpenAPI) | 일간 갱신 | 3,017 |
+| 보안등 | 전국보안등정보표준데이터 (data.go.kr, OpenAPI) | 2025-12-01 | 37 |
+
+> CCTV 는 전국 ~35만 row 중 부산만 필터한 1차 시드. data.go.kr 게이트웨이 일시 timeout 으로 22.7% 진행 후 중단되어 향후 재시드로 보강 예정 (목표 ~14,000건).
+> 보안등은 표준데이터 등록 자치단체 데이터만 포함되어 부산 강서구 일부만 표시됩니다. 향후 부산광역시 자체 데이터 포털 등 다른 소스 검토 예정.
 
 ### 데이터 레이어 분리 원칙
 컴포넌트/페이지는 **`supabase.from(...)` 을 직접 호출하지 않고** `lib/services/*.ts` 의 함수만 사용. 향후 React Native 클라이언트 추가 시 `services / schemas` 폴더가 그대로 이동 가능하도록 설계.
