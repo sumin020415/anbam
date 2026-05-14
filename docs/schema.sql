@@ -11,11 +11,16 @@
 --   - RLS 정책 (공개 조회 + 본인만 쓰기)
 --   - 인증 트리거: auth.users → profiles 자동 생성
 --   - Storage 정책: post-images 버킷 ({user.id}/{uuid}.{ext} 패턴)
+--   - Data API GRANT (anon/authenticated/service_role)
 --
 -- 데이터 흐름:
 --   - 회원가입 시 supabase.auth.signUp 에 options.data.nickname 전달
 --     → handle_new_user() 트리거가 raw_user_meta_data 에서 추출해 profiles INSERT
 --   - cctvs / lamps 는 service_role 로 시드 스크립트가 채움 (scripts/seed-pins.ts)
+--
+-- Data API 접근 정책 변경 대비 (2026-05-30 신규 / 2026-10-30 전체 enforced):
+--   Supabase 의 신규 정책상 public 스키마 테이블이 Data API (supabase-js/PostgREST/GraphQL)
+--   에 노출되려면 명시적 GRANT 가 필요. §9 섹션에서 일괄 부여.
 -- ============================================================
 
 
@@ -288,6 +293,55 @@ create policy "post_images_select_all"
 
 
 -- ============================================================
+-- 9. Default privileges (GRANT) — Data API 접근 권한
+-- ============================================================
+-- Supabase 2026-05-30 신규 / 2026-10-30 전체 enforced 정책 대비.
+-- public 스키마의 테이블이 Data API (supabase-js/PostgREST/GraphQL) 에 노출되려면
+-- 명시적 GRANT 가 필요. RLS 가 켜져 있어도 GRANT 가 없으면 PostgREST 가 42501 거절.
+--
+-- 권한 모델 (안밤 컨벤션):
+--   anon          → 비로그인. 모든 테이블 SELECT 만.
+--   authenticated → 로그인 사용자. profiles/posts/comments/reactions 는 본인 row 한정
+--                   (실제 본인 row 한정 검사는 RLS 가 담당, GRANT 는 명령어 단위).
+--   service_role  → 시드 스크립트 / admin API. 모든 테이블 풀 권한 (RLS bypass).
+--
+-- cctvs / lamps 는 읽기 전용 공공데이터 → anon/authenticated 는 SELECT 만,
+-- INSERT/UPDATE/DELETE 는 service_role 에게만.
+
+-- profiles
+grant select on public.profiles to anon, authenticated;
+grant insert, update, delete on public.profiles to authenticated;
+grant all on public.profiles to service_role;
+
+-- posts
+grant select on public.posts to anon, authenticated;
+grant insert, update, delete on public.posts to authenticated;
+grant all on public.posts to service_role;
+
+-- comments
+grant select on public.comments to anon, authenticated;
+grant insert, update, delete on public.comments to authenticated;
+grant all on public.comments to service_role;
+
+-- reactions
+grant select on public.reactions to anon, authenticated;
+grant insert, update, delete on public.reactions to authenticated;
+grant all on public.reactions to service_role;
+
+-- cctvs (읽기 전용 공공데이터, 쓰기는 service_role 만 — RLS + GRANT 이중 통제)
+grant select on public.cctvs to anon, authenticated;
+grant all on public.cctvs to service_role;
+
+-- lamps (읽기 전용 공공데이터, 쓰기는 service_role 만)
+grant select on public.lamps to anon, authenticated;
+grant all on public.lamps to service_role;
+
+-- bigserial 시퀀스 (cctvs / lamps) — service_role 이 nextval 호출 가능하도록.
+-- (Supabase 의 service_role 은 기본적으로 권한이 넓지만, 신규 정책 대비 명시.)
+grant usage, select on all sequences in schema public to service_role;
+
+
+-- ============================================================
 -- 완료
 -- ============================================================
 -- 검증 쿼리:
@@ -299,3 +353,10 @@ create policy "post_images_select_all"
 --
 --   select tgname from pg_trigger where tgname = 'on_auth_user_created';
 --   → 트리거 등록 확인
+--
+--   select grantee, table_name, privilege_type
+--     from information_schema.role_table_grants
+--    where table_schema = 'public'
+--      and grantee in ('anon', 'authenticated', 'service_role')
+--    order by table_name, grantee, privilege_type;
+--   → 각 role 의 테이블별 권한 확인 (Data API 노출 정책 대비)
