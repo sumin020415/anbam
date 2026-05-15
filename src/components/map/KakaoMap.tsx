@@ -6,6 +6,12 @@ import { Map, useKakaoLoader } from 'react-kakao-maps-sdk';
 export const BUSAN_CENTER = { lat: 35.1796, lng: 129.0756 };
 export const DEFAULT_MAP_LEVEL = 6;
 
+// Kakao Map 인스턴스 타입 — services 가 setLevel/panTo 등 imperative API 제공
+export type KakaoMapInstance = {
+  setLevel: (level: number) => void;
+  panTo: (latlng: unknown) => void;
+};
+
 type Props = {
   center?: { lat: number; lng: number };
   level?: number;
@@ -13,6 +19,7 @@ type Props = {
   children?: ReactNode;
   onClick?: (latLng: { lat: number; lng: number }) => void;
   onZoomChanged?: (level: number) => void;
+  onMapCreate?: (map: KakaoMapInstance) => void;
 };
 
 export default function KakaoMap({
@@ -22,6 +29,7 @@ export default function KakaoMap({
   children,
   onClick,
   onZoomChanged,
+  onMapCreate,
 }: Props) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
   const [loading, error] = useKakaoLoader({
@@ -67,6 +75,7 @@ export default function KakaoMap({
           : undefined
       }
       onZoomChanged={onZoomChanged ? (map) => onZoomChanged(map.getLevel()) : undefined}
+      onCreate={onMapCreate ? (map) => onMapCreate(map as unknown as KakaoMapInstance) : undefined}
     >
       {children}
     </Map>

@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { MapInfoWindow } from 'react-kakao-maps-sdk';
-import KakaoMap, { DEFAULT_MAP_LEVEL } from './KakaoMap';
+import { MapInfoWindow, MapMarker } from 'react-kakao-maps-sdk';
+import KakaoMap, { DEFAULT_MAP_LEVEL, type KakaoMapInstance } from './KakaoMap';
 import MapPin from './MapPin';
 import ClusterPin from './ClusterPin';
 import { clusterByDistrict, type ClusterGroup } from './clusterByDistrict';
@@ -25,19 +25,46 @@ type Props = {
   cctvPins: CctvPin[];
   lampPins: LampPin[];
   postPins: PostPin[];
+  searchPosition?: { lat: number; lng: number } | null;
 };
 
-export default function MapHome({ cctvPins, lampPins, postPins }: Props) {
+export default function MapHome({
+  cctvPins,
+  lampPins,
+  postPins,
+  searchPosition,
+}: Props) {
   const [active, setActive] = useState<ActivePin | null>(null);
   const [zoomLevel, setZoomLevel] = useState(DEFAULT_MAP_LEVEL);
+  const mapRef = useRef<KakaoMapInstance | null>(null);
 
   const cctvClusters = useMemo(() => clusterByDistrict(cctvPins), [cctvPins]);
   const lampClusters = useMemo(() => clusterByDistrict(lampPins), [lampPins]);
 
   const shouldCluster = zoomLevel >= CLUSTER_THRESHOLD;
 
+  // 헤더 검색에서 좌표 query 로 진입 시 자동으로 그 위치로 이동 + 줌인 (개별 핀 모드)
+  useEffect(() => {
+    if (!searchPosition) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const w = window as unknown as {
+      kakao?: { maps?: { LatLng: new (lat: number, lng: number) => unknown } };
+    };
+    const LatLng = w.kakao?.maps?.LatLng;
+    if (!LatLng) return;
+    map.setLevel(3);
+    map.panTo(new LatLng(searchPosition.lat, searchPosition.lng));
+    setZoomLevel(3);
+  }, [searchPosition]);
+
   return (
-    <KakaoMap onZoomChanged={setZoomLevel}>
+    <KakaoMap
+      onZoomChanged={setZoomLevel}
+      onMapCreate={(m) => {
+        mapRef.current = m;
+      }}
+    >
       {shouldCluster
         ? cctvClusters.map((c) => (
             <ClusterPin
@@ -87,6 +114,9 @@ export default function MapHome({ cctvPins, lampPins, postPins }: Props) {
           onClick={() => setActive({ kind: 'post', data: p })}
         />
       ))}
+
+      {/* 헤더 검색 결과 위치 — Kakao SDK 기본 파란 마커 (image 옵션 없이) */}
+      {searchPosition && <MapMarker position={searchPosition} />}
 
       {active && (
         <MapInfoWindow
