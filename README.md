@@ -39,7 +39,8 @@
 | 💬 댓글 + 대댓글 (계층 트리, depth 0~2 들여쓰기) | ✅ |
 | 👍👎 좋아요 / 싫어요 (복합 PK upsert, 토글/전환) | ✅ |
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 (종류별 색 + InfoWindow) | ✅ |
-| 🗂 자치구 단위 클러스터링 (줌 ≥ 5 = 클러스터 / < 5 = 개별 핀) | ✅ |
+| 🗂 3 단 줌 클러스터링 (줌 ≥ 6 = 자치구 16개 / 3~5 = 동 ~150~200개 / < 3 = 개별 핀) | ✅ |
+| 🧭 자치구·동 보정 스크립트 (Kakao Local REST API reverse geocoding, `npm run seed:all` chain 으로 자동) | ✅ |
 | 🔍 헤더 위치 검색 (Kakao Places + Geocoder 병렬, 명칭·도로명·지번 모두) | ✅ |
 | 🎚 핀 필터 토글 (전체/CCTV/보안등/제보, URL query `?filter=X` 기반) | ✅ |
 | 📌 검색·클릭 위치 파란 마커 + 주소 카드 + "여기에 제보 작성" Link (자동 좌표 채움) | ✅ |
@@ -73,8 +74,14 @@
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_xxxxx
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxxxx
-NEXT_PUBLIC_KAKAO_MAP_KEY=발급받은_JS_키
+NEXT_PUBLIC_KAKAO_MAP_KEY=발급받은_JS_키       # Kakao Map SDK (JavaScript 키)
+
+# 시드 / 보정 스크립트 전용 (선택, 공공데이터 시드 시에만 필요)
+KOREA_DATA_API_KEY=발급받은_data.go.kr_Decoding_키   # 서버 전용, NEXT_PUBLIC_ 금지
+KAKAO_REST_API_KEY=발급받은_Kakao_REST_API_키        # 서버 전용, JavaScript 키와 다른 별개 키
 ```
+
+> Vercel 대시보드에는 위 4 줄 (NEXT_PUBLIC_* / SUPABASE_SERVICE_ROLE_KEY) 만 입력. `KOREA_DATA_API_KEY` / `KAKAO_REST_API_KEY` 는 로컬 시드/보정 1회 실행용이라 Vercel 등록 불필요.
 
 ### 실행
 ```bash
@@ -105,28 +112,54 @@ npm run start        # 프로덕션 서버 (build 후)
 
 > 모든 `create` 문은 `if not exists`, 정책은 `drop policy if exists ...; create policy ...` 패턴이라 재실행 안전합니다.
 
-### Phase 7 — 부산 CCTV/보안등 시드 (선택, 공공데이터)
+### Phase 7 / 7.5 — 부산 CCTV·보안등 시드 + 자치구·동 보정 (선택, 공공데이터)
 
-`cctvs / lamps` 테이블을 채우려면 data.go.kr 인증키 발급 후:
+`cctvs / lamps` 테이블을 채우려면 외부 API 두 곳 키 발급 후:
 
 ```bash
 # 1) data.go.kr 활용신청 (자동승인, 5분)
 #    - 행정안전부_CCTV정보 조회서비스
 #    - 전국보안등정보표준데이터
 
-# 2) .env.local 에 추가 (⚠️ NEXT_PUBLIC_ 금지)
-echo "KOREA_DATA_API_KEY=발급받은_Decoding_키" >> .env.local
+# 2) Kakao Developers > 내 애플리케이션 > 앱 키 > REST API 키 복사
+#    (JavaScript 키와 다른 별개 키. 자치구·동 보정 reverse geocoding 용)
 
-# 3) 시드 실행 (로컬 1회, 30~60분 소요)
-npm run seed -- --target=cctv --dry-run --max-pages=3  # 검증
-npm run seed -- --target=cctv                          # 부산 CCTV
-npm run seed -- --target=lamp --max-pages=1            # 부산 보안등
+# 3) .env.local 에 두 키 추가 (⚠️ NEXT_PUBLIC_ 금지)
+echo "KOREA_DATA_API_KEY=발급받은_Decoding_키" >> .env.local
+echo "KAKAO_REST_API_KEY=발급받은_REST_API_키" >> .env.local
+
+# 4) 시드 + 보정 한 명령 chain (~2.5~3.5시간, PC 켜둠)
+npm run seed:all
+# = npm run seed -- --target=all          # CCTV + LAMP raw 시드 (~1.5~2시간)
+#   && npm run fix-cctv-district          # CCTV district 자치구 보정 (~80초)
+#   && npm run fix-lamp-district          # LAMP district + dong 보정 (~58분)
 ```
 
-시드 스크립트 (`scripts/seed-pins.ts`) 특징:
+또는 단계별 단독 실행 가능 (한 단계 실패 시 그 단계만 재실행):
+```bash
+npm run seed -- --target=cctv --dry-run --max-pages=3   # 검증
+npm run seed -- --target=cctv                            # CCTV 만
+npm run seed -- --target=lamp                            # LAMP 만
+npm run fix-cctv-district -- --dry-run                   # CCTV 보정 dry-run
+npm run fix-cctv-district                                # CCTV 보정 실제
+npm run fix-lamp-district -- --dry-run                   # LAMP 보정 dry-run
+npm run fix-lamp-district                                # LAMP 보정 실제
+```
+
+#### 책임 분리 (Single Responsibility)
+- `scripts/seed-pins.ts` = data.go.kr raw fetch + DB INSERT (streaming + skip)
+- `scripts/fix-cctv-district.ts` / `fix-lamp-district.ts` = DB 의 깨진 row 를 Kakao Local REST API (`coord2regioncode`) 로 reverse geocoding 보정
+- `npm run seed:all` = 둘을 `&&` chain (시드 도중 fail 시 보정 단계 안 돌아감)
+
+#### 시드 스크립트 특징
 - streaming INSERT (chunk 500) — 중간 실패 시 부분 보존
 - HTTP 5xx 자동 retry (5회) + 페이지 실패 skip (연속 10회 한도)
 - 부산 row 만 클라이언트 측 필터 (주소 prefix 매칭)
+- skip 페이지 / 미시드 범위 → `seed-skipped-{target}-{ts}.json` 자동 기록 (로컬, `.gitignore`)
+
+#### 보정 스크립트 특징 (자치구·동 정정)
+- 시드 매핑 `parts[1]/parts[2]` split 가정이 도로명 주소·자치구 토큰 누락 형식에 취약 → Kakao Local API 로 좌표 → 행정구역 매핑
+- rate-limit 100ms (Kakao 무료 한도 일 100,000 충분) + retry 3 (5xx exponential backoff) + dry-run + `fix-*-district-{ts}.json` 결과 로그
 
 ### Supabase URL Configuration (인증 메일 링크용)
 
@@ -164,7 +197,7 @@ src/
 ├── components/
 │   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드 + `?lat&lng` query 마운트 자동 reverseGeocode) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
-│   ├── map/                          # KakaoMap (래퍼, onMapCreate) / MapHome (메인 홈 + 줌 분기 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구 클러스터, count) / clusterByDistrict (자치구 그룹핑 utility)
+│   ├── map/                          # KakaoMap (래퍼, onMapCreate) / MapHome (메인 홈 + 3단 줌 분기 자치구·동·개별 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구·동 클러스터, count) / clusterByDistrict (BUSAN_DISTRICTS 16 화이트리스트 + clusterByDistrict + clusterByDong + normalizeDong 4 단계 정규화)
 │   ├── auth/LogoutButton.tsx
 │   └── layout/                       # Header (중앙: 필터 토글 + 검색) / HeaderSearchBox (Places + Geocoder 병렬, debounce 500ms) / PinFilterToggle (4 segmented, ?filter URL query) / ScrollToTopButton (모든 메인 페이지, 200px+ floating ↑)
 ├── hooks/                            # useUser (onAuthStateChange 구독)
@@ -172,26 +205,34 @@ src/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
 │   ├── utils/                        # server-safe utility (server/client 양쪽 import 가능) — pinFilter (타입/가드/OPTIONS)
-│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins/storage)
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins[1000-row range pagination]/storage)
 └── proxy.ts                          # 세션 자동 갱신 (Next.js 16, `export async function proxy(req)` + matcher config)
 
 scripts/
-└── seed-pins.ts                      # 부산 CCTV/보안등 시드 (data.go.kr, streaming INSERT + 5xx retry + page skip)
+├── seed-pins.ts                      # 부산 CCTV/보안등 시드 (data.go.kr, streaming INSERT + 5xx retry + page skip + skip JSON 로그)
+├── fix-cctv-district.ts              # CCTV 자치구·동 보정 (Kakao Local REST API coord2regioncode, dry-run + JSON 로그)
+└── fix-lamp-district.ts              # LAMP 자치구·동 보정 (도로명 단편 row 만 좁혀서 reverse geocoding)
 
 docs/
 └── schema.sql                        # Supabase 통합 SQL — 6테이블 + RLS + 트리거 + Storage 정책 + Data API GRANT
 ```
 
-### 데이터 소스 (Phase 7.5 — 2026-05-15 기준)
+### 데이터 소스 (Phase 7.5 — 2026-05-16 기준, 새 시드 진행 예정)
 
-| 종류 | 출처 | 수정/기준일 | 부산 row |
+| 종류 | 출처 | 수정/기준일 | 부산 row (이전 시드 + 자치구·동 보정 후) |
 |------|------|------------|---------|
-| CCTV | 행정안전부_CCTV정보 조회서비스 (data.go.kr, OpenAPI) | 일간 갱신 | **6,781** |
-| 보안등 | 전국보안등정보표준데이터 (data.go.kr, OpenAPI) | 2025-12-01 | **68,168** |
+| CCTV | 행정안전부_CCTV정보 조회서비스 (data.go.kr, OpenAPI) | 일간 갱신 | **6,781** (3차 시드 + 자치구 보정 100% — 강서구·남구 782 row 복구) |
+| 보안등 | 전국보안등정보표준데이터 (data.go.kr, OpenAPI) | 2025-12-01 | **68,168** (풀 시드 + LAMP 3 row 수동 SQL — 자치구 동구만 데이터 한계로 0) |
 
-> CCTV 는 전국 ~37만 row 중 부산만 필터한 누적 시드 (1차 3,017 → 2차 5,554 → 3차 **6,781**). data.go.kr 게이트웨이 일시 timeout 으로 page 1,630/3,745 (43.5%) 진행 후 종료 — skip 페이지 15 개 + 미시드 범위 2,115 페이지 (`seed-skipped-cctv-*.json` 자동 기록). 향후 부분 재시드 CLI (`--pages=N`, `--append`, `--retry-from=*.json`) 추가 후 보강 예정 (목표 ~15,000건).
-> 보안등은 전국 ~183만 row 중 부산만 필터한 풀 시드 결과 **68,168 row** 확보 (page 1,829/1,829 전체 완주). 어제 `--max-pages=1` 로 1 페이지만 받았을 때 37 row 만 보였던 가정 (`표준데이터 등록 자치단체 한계`) 은 실측으로 부정됨 — 표준데이터의 row 정렬이 자치단체 코드별 분산이라 부산 row 가 페이지 곳곳에 흩어져 있었음. 안전망 (streaming INSERT + page skip + skip JSON 로그) 적용된 코드로 ECONNRESET 없이 완주.
-> 보안등은 어제 `--max-pages=1` 로 1 페이지만 시드해 37 row 만 들어가 있는 상태. 풀 시드 시 표준데이터 row 정렬이 자치단체 코드별 분산되어 있어 **부산 ~60,000~80,000 row 도달 예상**. 안전망(streaming INSERT + page skip) 적용된 코드로 재시드 예정.
+> **자치구·동 보정 (Phase 7.5)** — 시드 매핑이 `parts[1]/parts[2]` 가정으로 깨지는 두 패턴 발견:
+> 1) CCTV 의 강서구·남구 784 row 의 district 자리에 동/도로명 단편 — 자치단체별로 "부산광역시 명지동..." 같이 자치구 토큰 누락 표기 존재
+> 2) LAMP 의 35,005 row (51.4%) 의 dong 자리에 도로명 단편 "용소로52-2" 등 — `rdnmadr` (도로명) 만 있고 `lnmadr` (지번) 빈 row 가 자치단체별로 극단 (남구·영도구·연제구·부산진구·수영구 ~100% 도로명 / 강서구·기장군·동래구·북구·사상구 0%)
+>
+> → `scripts/fix-cctv-district.ts` / `scripts/fix-lamp-district.ts` 가 Kakao Local REST API `coord2regioncode` 로 좌표 → 행정구역 reverse geocoding 보정. `npm run seed:all` chain 으로 새 시드 시 자동 호출.
+>
+> **CCTV 는 전국 ~37만 row 중 부산만 필터한 누적 시드 이력** (1차 3,017 → 2차 5,554 → 3차 **6,781**). data.go.kr 게이트웨이 일시 timeout 으로 page 1,630/3,745 (43.5%) 진행 후 종료 — skip 페이지 15 개 + 미시드 범위 2,115 페이지 (`seed-skipped-cctv-*.json` 자동 기록). 향후 부분 재시드 CLI (`--pages=N`, `--append`, `--retry-from=*.json`) 추가 후 보강 예정 (목표 ~15,000건).
+>
+> **보안등은 전국 ~183만 row 중 부산만 필터한 풀 시드 결과 68,168 row** (page 1,829/1,829 전체 완주). 표준데이터의 row 정렬이 자치단체 코드별 분산이라 부산 row 가 페이지 곳곳에 흩어져 있음. 안전망 (streaming INSERT + page skip + skip JSON 로그) 적용된 코드로 ECONNRESET 없이 완주.
 
 ### 데이터 레이어 분리 원칙
 컴포넌트/페이지는 **`supabase.from(...)` 을 직접 호출하지 않고** `lib/services/*.ts` 의 함수만 사용. 향후 React Native 클라이언트 추가 시 `services / schemas` 폴더가 그대로 이동 가능하도록 설계.
@@ -227,15 +268,18 @@ docs/
 
 ### 단기 (Phase 7.5 ~ Phase 10)
 
-| 항목 | 내용 |
-|------|------|
-| 🔁 CCTV 시드 보강 | 페이지 실패 skip 패턴 적용된 시드 재실행 → 부산 ~14,000 row 확보 |
-| 🗂 지도 클러스터링 | 자치구 단위 클러스터링 (줌 ≥ 5 = 클러스터 / < 5 = 개별 핀) — 14k 핀 DOM 부담 해소 |
-| 💡 보안등 데이터 보강 | `data.busan.go.kr` 부산광역시 자체 포털 또는 시·구별 OpenAPI 조사 |
-| 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본), 포트폴리오 사이트 카드 추가 |
-| 📊 분석 페이지 | 원본 nightsafe parity — 부산 SVG 자치구 클릭 + Chart.js 자치구별 제보/인구 대비 보안등 (헤더 "분석" 회색 비활성 해소) |
-| 🔍 위치 검색 | Kakao Places `keywordSearch` + 디바운스 검색창 — 지도 위 floating UI |
-| ✨ UX 보강 | 케밥 메뉴 (수정/삭제 통합) / 스크롤 탑 / Floating 작성 / 게시글 카드 댓글 수 / 인기 게시글 사이드바 |
+| 항목 | 내용 | 상태 |
+|------|------|------|
+| 🗂 지도 클러스터링 | 자치구 단위 (~16 개) 클러스터링 — 14k 핀 DOM 부담 해소 | ✅ |
+| 🗺 3 단 줌 클러스터 모드 | 자치구 (줌 6+) / 동 (3~5, `clusterByDong + normalizeDong` 4 단계 정규화) / 개별 (<3) | ✅ |
+| 🧭 자치구·동 보정 | `fix-cctv-district.ts` + `fix-lamp-district.ts` (Kakao Local REST API reverse geocoding) + `npm run seed:all` chain | ✅ |
+| 🔍 위치 검색 | Kakao Places + Geocoder 병렬 + debounce 500ms 검색창 (헤더 중앙) | ✅ |
+| 🎚 핀 필터 토글 | 4 segmented (전체/CCTV/보안등/제보) URL query 기반 | ✅ |
+| ✨ UX 보강 | 케밥 메뉴 / 스크롤 탑 / Floating 작성 | ✅ |
+| 🔁 CCTV 부분 재시드 CLI | `--pages=N` / `--append` / `--retry-from=*.json` + unique constraint → CCTV ~15,000 row 도달 | ⏳ |
+| 📊 분석 페이지 | 원본 nightsafe parity — 부산 SVG 자치구 클릭 + Chart.js 자치구별 제보/인구 대비 보안등 (헤더 "분석" 회색 비활성 해소) | ⏳ |
+| 🗨 게시글 카드 댓글 수 + 인기 게시글 사이드바 (좋아요 상위 5) | 원본 nightsafe parity 마지막 | ⏳ |
+| 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본) + 포트폴리오 사이트 카드 추가 | ⏳ |
 
 ### 중기 (실사용 가능한 사이트로 확장)
 
