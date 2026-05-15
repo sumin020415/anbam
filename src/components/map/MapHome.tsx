@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { MapInfoWindow, MapMarker } from 'react-kakao-maps-sdk';
+import { CustomOverlayMap, MapInfoWindow, MapMarker } from 'react-kakao-maps-sdk';
 import KakaoMap, { DEFAULT_MAP_LEVEL, type KakaoMapInstance } from './KakaoMap';
 import MapPin from './MapPin';
 import ClusterPin from './ClusterPin';
@@ -36,6 +36,11 @@ export default function MapHome({
 }: Props) {
   const [active, setActive] = useState<ActivePin | null>(null);
   const [zoomLevel, setZoomLevel] = useState(DEFAULT_MAP_LEVEL);
+  const [activeMarker, setActiveMarker] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(searchPosition ?? null);
+  const [activeMarkerAddress, setActiveMarkerAddress] = useState<string | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
 
   const cctvClusters = useMemo(() => clusterByDistrict(cctvPins), [cctvPins]);
@@ -44,8 +49,10 @@ export default function MapHome({
   const shouldCluster = zoomLevel >= CLUSTER_THRESHOLD;
 
   // 헤더 검색에서 좌표 query 로 진입 시 자동으로 그 위치로 이동 + 줌인 (개별 핀 모드)
+  // + activeMarker 동기화
   useEffect(() => {
     if (!searchPosition) return;
+    setActiveMarker(searchPosition);
     const map = mapRef.current;
     if (!map) return;
     const w = window as unknown as {
@@ -58,8 +65,62 @@ export default function MapHome({
     setZoomLevel(3);
   }, [searchPosition]);
 
+  // 지도 빈 영역 클릭 시 그 좌표에 파란 마커 (기존 핀 클릭은 stopPropagation 으로 분리됨)
+  const handleMapClick = (latLng: { lat: number; lng: number }) => {
+    setActiveMarker(latLng);
+    setActive(null);
+  };
+
+  // 파란 마커 좌표 → 주소 (도로명 우선, 없으면 지번) — Phase 5 위치 picker 와 동일 패턴
+  useEffect(() => {
+    if (!activeMarker) {
+      setActiveMarkerAddress(null);
+      return;
+    }
+    const w = window as unknown as {
+      kakao?: {
+        maps?: {
+          services?: {
+            Geocoder: new () => {
+              coord2Address: (
+                lng: number,
+                lat: number,
+                callback: (
+                  result: Array<{
+                    road_address?: { address_name: string } | null;
+                    address?: { address_name: string } | null;
+                  }>,
+                  status: string,
+                ) => void,
+              ) => void;
+            };
+            Status: { OK: string };
+          };
+        };
+      };
+    };
+    const services = w.kakao?.maps?.services;
+    if (!services) return;
+    let cancelled = false;
+    const geocoder = new services.Geocoder();
+    geocoder.coord2Address(activeMarker.lng, activeMarker.lat, (result, status) => {
+      if (cancelled) return;
+      if (status === services.Status.OK && result[0]) {
+        const road = result[0].road_address?.address_name;
+        const jibun = result[0].address?.address_name;
+        setActiveMarkerAddress(road || jibun || null);
+      } else {
+        setActiveMarkerAddress(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMarker]);
+
   return (
     <KakaoMap
+      onClick={handleMapClick}
       onZoomChanged={setZoomLevel}
       onMapCreate={(m) => {
         mapRef.current = m;
@@ -115,8 +176,34 @@ export default function MapHome({
         />
       ))}
 
-      {/* 헤더 검색 결과 위치 — Kakao SDK 기본 파란 마커 (image 옵션 없이) */}
-      {searchPosition && <MapMarker position={searchPosition} />}
+      {/* 검색 결과 + 지도 클릭 위치 — Kakao SDK 기본 파란 마커 + 주소 카드 (CustomOverlayMap, zIndex 로 핀 위) */}
+      {activeMarker && (
+        <>
+          <MapMarker position={activeMarker} />
+          {activeMarkerAddress && !active && (
+            <CustomOverlayMap
+              position={activeMarker}
+              yAnchor={1.5}
+              xAnchor={0.5}
+              zIndex={100}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="whitespace-nowrap rounded-anbam border border-line-1 bg-white px-3 py-2 shadow-card"
+              >
+                <p className="text-xs font-bold text-ink-1">{activeMarkerAddress}</p>
+                <Link
+                  href={`/posts/new?lat=${activeMarker.lat}&lng=${activeMarker.lng}`}
+                  className="mt-1.5 inline-block text-xs font-bold text-warn underline"
+                >
+                  여기에 제보 작성 →
+                </Link>
+              </div>
+            </CustomOverlayMap>
+          )}
+        </>
+      )}
 
       {active && (
         <MapInfoWindow
