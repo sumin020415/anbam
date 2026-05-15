@@ -42,7 +42,10 @@
 | 🗂 자치구 단위 클러스터링 (줌 ≥ 5 = 클러스터 / < 5 = 개별 핀) | ✅ |
 | 📍 게시글 위치 picker (지도 클릭 → 좌표/주소 자동 채움) | ✅ |
 | 📷 이미지 업로드 (Supabase Storage, 글당 1장, 5MB 제한) | ✅ |
-| 🎥 부산 CCTV/보안등 시드 스크립트 (data.go.kr 공공데이터, streaming INSERT + 5xx retry + page skip) | ✅ |
+| 🎥 부산 CCTV/보안등 시드 스크립트 (data.go.kr 공공데이터, streaming INSERT + 5xx retry + page skip + skip 페이지 JSON 로그) | ✅ |
+| ⋯ 케밥 메뉴 (게시글 헤더 우측, 수정/삭제 통합, 외부 클릭 감지) | ✅ |
+| ✏️ Floating 작성 버튼 (게시판 우하단 + 비로그인 시 로그인 페이지) | ✅ |
+| ⬆ 스크롤 탑 버튼 (스크롤 200px+ 시 우하단 floating, smooth scroll) | ✅ |
 
 ---
 
@@ -156,11 +159,11 @@ src/
 │   ├── auth/callback/                # PKCE 코드 교환 (resetPasswordForEmail 등)
 │   └── api/auth/check-email/         # 이메일 중복확인 (service_role)
 ├── components/
-│   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드) / DeleteButton / ViewCountTrigger / ReactionButtons
+│   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
 │   ├── map/                          # KakaoMap (래퍼) / MapHome (메인 홈 + 줌 분기) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구 클러스터, count) / clusterByDistrict (자치구 그룹핑 utility)
 │   ├── auth/LogoutButton.tsx
-│   └── layout/Header.tsx
+│   └── layout/                       # Header / ScrollToTopButton (모든 메인 페이지, 200px+ floating ↑)
 ├── hooks/                            # useUser (onAuthStateChange 구독)
 ├── lib/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
