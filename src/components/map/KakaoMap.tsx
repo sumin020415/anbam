@@ -12,6 +12,7 @@ type Props = {
   className?: string;
   children?: ReactNode;
   onClick?: (latLng: { lat: number; lng: number }) => void;
+  onZoomChanged?: (level: number) => void;
 };
 
 export default function KakaoMap({
@@ -20,6 +21,7 @@ export default function KakaoMap({
   className = 'h-full w-full',
   children,
   onClick,
+  onZoomChanged,
 }: Props) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
   const [loading, error] = useKakaoLoader({
@@ -64,6 +66,7 @@ export default function KakaoMap({
             }
           : undefined
       }
+      onZoomChanged={onZoomChanged ? (map) => onZoomChanged(map.getLevel()) : undefined}
     >
       {children}
     </Map>

@@ -1,16 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { MapInfoWindow } from 'react-kakao-maps-sdk';
-import KakaoMap from './KakaoMap';
+import KakaoMap, { DEFAULT_MAP_LEVEL } from './KakaoMap';
 import MapPin from './MapPin';
+import ClusterPin from './ClusterPin';
+import { clusterByDistrict, type ClusterGroup } from './clusterByDistrict';
 import type { CctvPin, LampPin, PostPin } from '@/lib/services/pins';
+
+// 줌 레벨 정책 (카카오맵: 숫자 ↑ = 축소, 숫자 ↓ = 확대)
+//   줌 ≥ CLUSTER_THRESHOLD : 자치구 단위 클러스터 (DOM 부담 ↓)
+//   줌 < CLUSTER_THRESHOLD : 개별 핀 + InfoWindow
+// 기본 부산 전체 보기(줌 6) 에선 클러스터, 줌인하면 개별로 전환.
+const CLUSTER_THRESHOLD = 5;
 
 type ActivePin =
   | { kind: 'cctv'; data: CctvPin }
   | { kind: 'lamp'; data: LampPin }
-  | { kind: 'post'; data: PostPin };
+  | { kind: 'post'; data: PostPin }
+  | { kind: 'cluster'; cluster: ClusterGroup; clusterKind: 'cctv' | 'lamp' };
 
 type Props = {
   cctvPins: CctvPin[];
@@ -20,25 +29,56 @@ type Props = {
 
 export default function MapHome({ cctvPins, lampPins, postPins }: Props) {
   const [active, setActive] = useState<ActivePin | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(DEFAULT_MAP_LEVEL);
+
+  const cctvClusters = useMemo(() => clusterByDistrict(cctvPins), [cctvPins]);
+  const lampClusters = useMemo(() => clusterByDistrict(lampPins), [lampPins]);
+
+  const shouldCluster = zoomLevel >= CLUSTER_THRESHOLD;
 
   return (
-    <KakaoMap>
-      {cctvPins.map((p) => (
-        <MapPin
-          key={`cctv-${p.id}`}
-          type="cctv"
-          position={{ lat: p.lat, lng: p.lng }}
-          onClick={() => setActive({ kind: 'cctv', data: p })}
-        />
-      ))}
-      {lampPins.map((p) => (
-        <MapPin
-          key={`lamp-${p.id}`}
-          type="lamp"
-          position={{ lat: p.lat, lng: p.lng }}
-          onClick={() => setActive({ kind: 'lamp', data: p })}
-        />
-      ))}
+    <KakaoMap onZoomChanged={setZoomLevel}>
+      {shouldCluster
+        ? cctvClusters.map((c) => (
+            <ClusterPin
+              key={`cctv-cluster-${c.key}`}
+              kind="cctv"
+              position={{ lat: c.lat, lng: c.lng }}
+              count={c.count}
+              label={c.key}
+              onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'cctv' })}
+            />
+          ))
+        : cctvPins.map((p) => (
+            <MapPin
+              key={`cctv-${p.id}`}
+              type="cctv"
+              position={{ lat: p.lat, lng: p.lng }}
+              onClick={() => setActive({ kind: 'cctv', data: p })}
+            />
+          ))}
+
+      {shouldCluster
+        ? lampClusters.map((c) => (
+            <ClusterPin
+              key={`lamp-cluster-${c.key}`}
+              kind="lamp"
+              position={{ lat: c.lat, lng: c.lng }}
+              count={c.count}
+              label={c.key}
+              onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'lamp' })}
+            />
+          ))
+        : lampPins.map((p) => (
+            <MapPin
+              key={`lamp-${p.id}`}
+              type="lamp"
+              position={{ lat: p.lat, lng: p.lng }}
+              onClick={() => setActive({ kind: 'lamp', data: p })}
+            />
+          ))}
+
+      {/* 제보는 줌 레벨 무관 항상 개별 — 수가 적고 InfoWindow 가 핵심 UX */}
       {postPins.map((p) => (
         <MapPin
           key={`post-${p.id}`}
@@ -50,7 +90,11 @@ export default function MapHome({ cctvPins, lampPins, postPins }: Props) {
 
       {active && (
         <MapInfoWindow
-          position={{ lat: active.data.lat, lng: active.data.lng }}
+          position={
+            active.kind === 'cluster'
+              ? { lat: active.cluster.lat, lng: active.cluster.lng }
+              : { lat: active.data.lat, lng: active.data.lng }
+          }
         >
           <PinInfoCard active={active} onClose={() => setActive(null)} />
         </MapInfoWindow>
@@ -82,6 +126,18 @@ function PinInfoCard({
 }
 
 function PinInfoBody({ active }: { active: ActivePin }) {
+  if (active.kind === 'cluster') {
+    const label = active.clusterKind === 'cctv' ? 'CCTV' : '보안등';
+    return (
+      <>
+        <p className="font-bold">
+          {active.cluster.key} {label}
+        </p>
+        <p className="text-xs text-ink-2">총 {active.cluster.count.toLocaleString('ko-KR')}개</p>
+        <p className="mt-1 text-xs text-ink-2">지도를 더 확대하면 개별 위치를 볼 수 있습니다.</p>
+      </>
+    );
+  }
   if (active.kind === 'cctv') {
     const p = active.data;
     const place = [p.district, p.dong].filter(Boolean).join(' ');

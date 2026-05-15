@@ -24,7 +24,7 @@ export type PostPin = {
   title: string;
 };
 
-export const PINS_FETCH_LIMIT = 1000;
+export const PINS_FETCH_LIMIT = 20000;
 
 function logPinError(scope: string, error: unknown): void {
   console.error(`[pins:${scope}] Supabase error:`, error);
