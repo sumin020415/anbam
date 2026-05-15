@@ -227,23 +227,22 @@ async function seedCctv() {
   let totalFetched = 0;
   let totalInserted = 0;
   let buffer: CctvSeedRow[] = [];
-  let firstMatched: CctvSeedRow | null = null;
   const FLUSH_THRESHOLD = 500;
   let totalCount = 0;
   const skippedPages: number[] = [];
   let lastReachedPage = 0;
   let stopReason: StopReason = 'completed';
 
-  // 디버그: 전체 row 수 확인 (1회)
+  // totalCount 조회 (예상 페이지 수 계산용)
   try {
-    const debugUrl = new URL(CCTV_API);
-    debugUrl.searchParams.set('serviceKey', KOREA_DATA_API_KEY!);
-    debugUrl.searchParams.set('pageNo', '1');
-    debugUrl.searchParams.set('numOfRows', '1');
-    debugUrl.searchParams.set('returnType', 'JSON');
-    const debugRes = await fetchWithRetry(debugUrl);
-    const debugJson = await debugRes.json();
-    const tc = debugJson?.response?.body?.totalCount;
+    const probeUrl = new URL(CCTV_API);
+    probeUrl.searchParams.set('serviceKey', KOREA_DATA_API_KEY!);
+    probeUrl.searchParams.set('pageNo', '1');
+    probeUrl.searchParams.set('numOfRows', '1');
+    probeUrl.searchParams.set('returnType', 'JSON');
+    const probeRes = await fetchWithRetry(probeUrl);
+    const probeJson = await probeRes.json();
+    const tc = probeJson?.response?.body?.totalCount;
     totalCount = Number(tc) || 0;
     console.log(`[cctv] totalCount = ${totalCount} (예상 페이지 수 @numOfRows=${CCTV_PAGE_SIZE} = ${Math.ceil(totalCount / CCTV_PAGE_SIZE)})`);
   } catch (err) {
@@ -304,10 +303,7 @@ async function seedCctv() {
 
     for (const row of list) {
       const mapped = mapCctv(row);
-      if (mapped) {
-        if (!firstMatched) firstMatched = mapped;
-        buffer.push(mapped);
-      }
+      if (mapped) buffer.push(mapped);
     }
     console.log(
       `[cctv] page=${page} fetched=${list.length} totalFetched=${totalFetched} busanBuffer=${buffer.length} totalInserted=${totalInserted}`,
@@ -330,7 +326,6 @@ async function seedCctv() {
 
   const total = args.dryRun ? buffer.length : totalInserted;
   console.log(`[cctv] 전체 fetched=${totalFetched}, 부산 매칭=${total}`);
-  if (firstMatched) console.log('[cctv] sample[0]:', firstMatched);
   if (args.dryRun) console.log('[cctv] --dry-run → DB 작업 생략');
   else console.log(`[cctv] ✅ 완료: ${totalInserted} rows`);
 
@@ -439,16 +434,16 @@ async function seedLamp() {
 
   let totalCount = 0;
 
-  // 디버그: 전체 row 수 확인 (1회)
+  // totalCount 조회 (예상 페이지 수 계산용)
   try {
-    const debugUrl = new URL(LAMP_API);
-    debugUrl.searchParams.set('serviceKey', KOREA_DATA_API_KEY);
-    debugUrl.searchParams.set('pageNo', '1');
-    debugUrl.searchParams.set('numOfRows', '1');
-    debugUrl.searchParams.set('type', 'json');
-    const debugRes = await fetchWithRetry(debugUrl);
-    const debugJson = await debugRes.json();
-    const tc = debugJson?.response?.body?.totalCount;
+    const probeUrl = new URL(LAMP_API);
+    probeUrl.searchParams.set('serviceKey', KOREA_DATA_API_KEY);
+    probeUrl.searchParams.set('pageNo', '1');
+    probeUrl.searchParams.set('numOfRows', '1');
+    probeUrl.searchParams.set('type', 'json');
+    const probeRes = await fetchWithRetry(probeUrl);
+    const probeJson = await probeRes.json();
+    const tc = probeJson?.response?.body?.totalCount;
     totalCount = Number(tc) || 0;
     console.log(
       `[lamp] totalCount = ${totalCount} (예상 페이지 수 @numOfRows=${LAMP_PAGE_SIZE} = ${Math.ceil(totalCount / LAMP_PAGE_SIZE)})`,
@@ -460,7 +455,6 @@ async function seedLamp() {
   let totalFetched = 0;
   let totalInserted = 0;
   let buffer: LampSeedRow[] = [];
-  let firstMatched: LampSeedRow | null = null;
   const FLUSH_THRESHOLD = 500;
   const skippedPages: number[] = [];
   let lastReachedPage = 0;
@@ -524,13 +518,6 @@ async function seedLamp() {
     for (const row of list) {
       const mapped = mapLamp(row);
       if (mapped) {
-        if (!firstMatched) firstMatched = mapped;
-        // 디버그: 처음 5개 부산 매칭 row 의 원본 주소 출력
-        if (totalInserted + buffer.length < 5) {
-          console.log(
-            `[lamp:debug:busan] rdnmadr="${row.rdnmadr}", lnmadr="${row.lnmadr}", insttNm="${row.insttNm}"`,
-          );
-        }
         buffer.push(mapped);
         matchedThisPage++;
       }
@@ -556,7 +543,6 @@ async function seedLamp() {
 
   const total = args.dryRun ? buffer.length : totalInserted;
   console.log(`[lamp] 전체 fetched=${totalFetched}, 부산 매칭=${total}`);
-  if (firstMatched) console.log('[lamp] sample[0]:', firstMatched);
   if (args.dryRun) console.log('[lamp] --dry-run → DB 작업 생략');
   else console.log(`[lamp] ✅ 완료: ${totalInserted} rows`);
 
