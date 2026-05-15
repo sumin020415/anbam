@@ -1,0 +1,301 @@
+// scripts/fix-lamp-district.ts
+// LAMP 의 dong 자리에 도로명 단편이 들어간 row + district 가 부산 16 자치구 화이트리스트
+// 미통과 row 를 Kakao Local REST API (coord2regioncode) 로 좌표 → 행정구역 변환해 보정한다.
+//
+// 사전 — `.env.local` 에 `KAKAO_REST_API_KEY` 등록 필요
+//   (Kakao Developers > 내 애플리케이션 > 앱 키 > REST API 키 — JavaScript 키와 다른 키)
+//
+// 실행:
+//   npm run fix-lamp-district -- --dry-run
+//   npm run fix-lamp-district
+//
+// 결과: fix-lamp-district-{ts}.json (모든 row 의 before/after + status)
+
+import { config as loadEnv } from 'dotenv';
+import path from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+loadEnv({ path: path.resolve(process.cwd(), '.env.local') });
+
+const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
+
+if (!SUPA_URL || !SUPA_KEY) {
+  console.error(
+    '[fix-lamp] NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 환경변수가 필요합니다.',
+  );
+  process.exit(1);
+}
+if (!KAKAO_REST_API_KEY) {
+  console.error(
+    '[fix-lamp] KAKAO_REST_API_KEY 환경변수가 필요합니다. Kakao Developers > 앱 > 앱 키 > REST API 키.',
+  );
+  process.exit(1);
+}
+
+const BUSAN_DISTRICTS = new Set([
+  '강서구',
+  '금정구',
+  '기장군',
+  '남구',
+  '동구',
+  '동래구',
+  '부산진구',
+  '북구',
+  '사상구',
+  '사하구',
+  '서구',
+  '수영구',
+  '연제구',
+  '영도구',
+  '중구',
+  '해운대구',
+]);
+
+const args = {
+  dryRun: process.argv.includes('--dry-run'),
+};
+
+const admin: SupabaseClient = createClient(SUPA_URL, SUPA_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+// Kakao Local API rate limit (무료: 일 100,000 호출, 초당 ~10).
+// 안전하게 100ms 간격 (초당 10) — LAMP 35k row × 100ms ≈ 58 분.
+const RATE_LIMIT_MS = 100;
+const RETRY = 3;
+// 진행 로그 간격 (LAMP 는 row 수가 커서 50 → 500 으로 늘림)
+const PROGRESS_LOG_INTERVAL = 500;
+
+type Coord2RegionDoc = {
+  region_type: 'H' | 'B';
+  code: string;
+  address_name: string;
+  region_1depth_name: string;
+  region_2depth_name: string;
+  region_3depth_name: string;
+};
+
+async function coord2RegionCode(lat: number, lng: number): Promise<Coord2RegionDoc[]> {
+  const url = new URL('https://dapi.kakao.com/v2/local/geo/coord2regioncode.json');
+  url.searchParams.set('x', String(lng));
+  url.searchParams.set('y', String(lat));
+
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= RETRY; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` },
+      });
+      if (!res.ok) {
+        if (res.status >= 500 && attempt < RETRY) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          continue;
+        }
+        const body = await res.text();
+        throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
+      }
+      const json = await res.json();
+      return (json?.documents ?? []) as Coord2RegionDoc[];
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= RETRY) break;
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
+type BrokenRow = {
+  id: number;
+  district: string;
+  dong: string | null;
+  lat: number;
+  lng: number;
+};
+
+// LAMP 의 깨진 row 두 종류를 페이지네이션 + dedup 으로 모은다:
+//   1) district not in (16 자치구 화이트리스트)
+//   2) dong 자리에 도로명 단편 포함 (`로/길/대로/거리/번길` 포함)
+async function fetchBrokenRows(): Promise<BrokenRow[]> {
+  const districtList = Array.from(BUSAN_DISTRICTS)
+    .map((d) => `"${d}"`)
+    .join(',');
+  const seen = new Set<number>();
+  const all: BrokenRow[] = [];
+  const pageSize = 1000;
+
+  // (1) district not in 16 자치구
+  let from = 0;
+  while (true) {
+    const { data, error } = await admin
+      .from('lamps')
+      .select('id, district, dong, lat, lng')
+      .not('district', 'in', `(${districtList})`)
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of data as unknown as BrokenRow[]) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        all.push(row);
+      }
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  // (2) dong 도로명 단편 — PostgREST or chain
+  from = 0;
+  while (true) {
+    const { data, error } = await admin
+      .from('lamps')
+      .select('id, district, dong, lat, lng')
+      .or(
+        'dong.like.%로%,dong.like.%길%,dong.like.%대로%,dong.like.%거리%,dong.like.%번길%',
+      )
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of data as unknown as BrokenRow[]) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        all.push(row);
+      }
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return all;
+}
+
+type FixStatus = 'fixed' | 'not_busan' | 'no_match' | 'error';
+
+type FixResult = {
+  id: number;
+  oldDistrict: string;
+  oldDong: string | null;
+  newDistrict: string | null;
+  newDong: string | null;
+  lat: number;
+  lng: number;
+  status: FixStatus;
+  error?: string;
+};
+
+async function main() {
+  console.log('[fix-lamp] args=', args);
+  console.log('[fix-lamp] supabase=', SUPA_URL);
+
+  console.log('[fix-lamp] 깨진 row 조회 중…');
+  const rows = await fetchBrokenRows();
+  console.log(`[fix-lamp] 깨진 row = ${rows.length} 개`);
+  if (rows.length === 0) {
+    console.log('[fix-lamp] 보정할 row 없음 → 종료');
+    return;
+  }
+
+  const results: FixResult[] = [];
+  let fixed = 0;
+  let notBusan = 0;
+  let noMatch = 0;
+  let errors = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    try {
+      const docs = await coord2RegionCode(r.lat, r.lng);
+      const doc =
+        docs.find((d) => d.region_type === 'H') ?? docs.find((d) => d.region_type === 'B');
+
+      if (!doc) {
+        results.push({
+          id: r.id,
+          oldDistrict: r.district,
+          oldDong: r.dong,
+          newDistrict: null,
+          newDong: null,
+          lat: r.lat,
+          lng: r.lng,
+          status: 'no_match',
+        });
+        noMatch++;
+      } else if (
+        doc.region_1depth_name !== '부산광역시' ||
+        !BUSAN_DISTRICTS.has(doc.region_2depth_name)
+      ) {
+        results.push({
+          id: r.id,
+          oldDistrict: r.district,
+          oldDong: r.dong,
+          newDistrict: doc.region_2depth_name,
+          newDong: doc.region_3depth_name,
+          lat: r.lat,
+          lng: r.lng,
+          status: 'not_busan',
+        });
+        notBusan++;
+      } else {
+        const newDistrict = doc.region_2depth_name;
+        const newDong = doc.region_3depth_name;
+        if (!args.dryRun) {
+          const { error } = await admin
+            .from('lamps')
+            .update({ district: newDistrict, dong: newDong })
+            .eq('id', r.id);
+          if (error) throw error;
+        }
+        results.push({
+          id: r.id,
+          oldDistrict: r.district,
+          oldDong: r.dong,
+          newDistrict,
+          newDong,
+          lat: r.lat,
+          lng: r.lng,
+          status: 'fixed',
+        });
+        fixed++;
+      }
+    } catch (err) {
+      results.push({
+        id: r.id,
+        oldDistrict: r.district,
+        oldDong: r.dong,
+        newDistrict: null,
+        newDong: null,
+        lat: r.lat,
+        lng: r.lng,
+        status: 'error',
+        error: (err as Error).message,
+      });
+      errors++;
+      console.warn(`[fix-lamp] id=${r.id} 실패: ${(err as Error).message}`);
+    }
+
+    if ((i + 1) % PROGRESS_LOG_INTERVAL === 0 || i === rows.length - 1) {
+      console.log(
+        `[fix-lamp] 진행 ${i + 1}/${rows.length} (fixed=${fixed}, not_busan=${notBusan}, no_match=${noMatch}, errors=${errors})`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
+  }
+
+  console.log(
+    `\n[fix-lamp] 완료: fixed=${fixed}, not_busan=${notBusan}, no_match=${noMatch}, errors=${errors}`,
+  );
+
+  const logFile = `fix-lamp-district-${Date.now()}.json`;
+  writeFileSync(logFile, JSON.stringify(results, null, 2));
+  console.log(`[fix-lamp] 결과 로그: ${logFile}`);
+
+  if (args.dryRun) console.log('[fix-lamp] --dry-run → DB 업데이트 생략됨');
+}
+
+main().catch((err) => {
+  console.error('\n[fix-lamp] 실패:', err);
+  process.exit(1);
+});

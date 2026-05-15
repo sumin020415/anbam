@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx scripts/seed-pins.ts"
+    "seed": "tsx scripts/seed-pins.ts",
+    "fix-cctv-district": "tsx scripts/fix-cctv-district.ts",
+    "fix-lamp-district": "tsx scripts/fix-lamp-district.ts",
+    "seed:all": "npm run seed -- --target=all && npm run fix-cctv-district && npm run fix-lamp-district"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
