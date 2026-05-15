@@ -15,6 +15,7 @@
 
 import { config as loadEnv } from 'dotenv';
 import path from 'node:path';
+import { writeFileSync } from 'node:fs';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import proj4 from 'proj4';
 
@@ -77,6 +78,43 @@ const FETCH_HEADERS = {
   Accept: 'application/json, */*;q=0.1',
   'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
 };
+
+// ============================================================
+// Skip 페이지 로그 저장 — 부분 재시드를 위한 추적 파일
+// ============================================================
+type StopReason = 'completed' | 'empty_response' | 'consecutive_failures' | 'max_pages';
+
+type SkipLog = {
+  target: 'cctv' | 'lamp';
+  stopReason: StopReason;
+  totalCount: number;
+  estimatedTotalPages: number;
+  lastReachedPage: number;
+  totalInserted: number;
+  skippedPages: number[];
+  missedRange: [number, number] | null;
+  timestamp: string;
+};
+
+function saveSkipLog(log: SkipLog): void {
+  // 콘솔 요약
+  if (log.skippedPages.length > 0) {
+    console.log(
+      `\n[${log.target}] ⚠️  skip 된 페이지 ${log.skippedPages.length}개: ${log.skippedPages.join(',')}`,
+    );
+  }
+  if (log.missedRange) {
+    console.log(
+      `[${log.target}] ⚠️  한도 초과 종료 — 미시드 페이지 ${log.missedRange[0]}~${log.missedRange[1]}`,
+    );
+  }
+  // skip 도 미시드 범위도 없으면 파일 안 만듬 (완전 성공)
+  if (log.skippedPages.length === 0 && !log.missedRange) return;
+
+  const filename = `seed-skipped-${log.target}-${Date.now()}.json`;
+  writeFileSync(filename, JSON.stringify(log, null, 2));
+  console.log(`[${log.target}] 📝 미시드 페이지 목록 저장: ${filename}`);
+}
 
 async function fetchWithRetry(
   url: string | URL,
@@ -191,6 +229,10 @@ async function seedCctv() {
   let buffer: CctvSeedRow[] = [];
   let firstMatched: CctvSeedRow | null = null;
   const FLUSH_THRESHOLD = 500;
+  let totalCount = 0;
+  const skippedPages: number[] = [];
+  let lastReachedPage = 0;
+  let stopReason: StopReason = 'completed';
 
   // 디버그: 전체 row 수 확인 (1회)
   try {
@@ -201,8 +243,9 @@ async function seedCctv() {
     debugUrl.searchParams.set('returnType', 'JSON');
     const debugRes = await fetchWithRetry(debugUrl);
     const debugJson = await debugRes.json();
-    const totalCount = debugJson?.response?.body?.totalCount;
-    console.log(`[cctv] totalCount = ${totalCount} (예상 페이지 수 @numOfRows=${CCTV_PAGE_SIZE} = ${Math.ceil(Number(totalCount) / CCTV_PAGE_SIZE)})`);
+    const tc = debugJson?.response?.body?.totalCount;
+    totalCount = Number(tc) || 0;
+    console.log(`[cctv] totalCount = ${totalCount} (예상 페이지 수 @numOfRows=${CCTV_PAGE_SIZE} = ${Math.ceil(totalCount / CCTV_PAGE_SIZE)})`);
   } catch (err) {
     console.warn('[cctv] totalCount 조회 실패:', (err as Error).message);
   }
@@ -238,9 +281,11 @@ async function seedCctv() {
       list = await fetchCctvPage(page, CCTV_PAGE_SIZE);
     } catch (err) {
       failedPages++;
+      skippedPages.push(page);
       console.warn(`[cctv] page=${page} 실패 (${failedPages}/${MAX_CONSECUTIVE_FAILURES}) → skip: ${(err as Error).message}`);
       if (failedPages >= MAX_CONSECUTIVE_FAILURES) {
         console.error('[cctv] 연속 실패 한도 초과 → 시드 중단 (이미 INSERT 된 부분은 보존)');
+        stopReason = 'consecutive_failures';
         break;
       }
       // 잔여 buffer 라도 flush 후 다음 페이지로
@@ -251,6 +296,8 @@ async function seedCctv() {
 
     if (list.length === 0) {
       console.log(`[cctv] page=${page} 빈 응답 → 종료`);
+      lastReachedPage = page - 1;
+      stopReason = 'empty_response';
       break;
     }
     totalFetched += list.length;
@@ -269,8 +316,11 @@ async function seedCctv() {
     // 버퍼가 임계치 넘으면 즉시 INSERT (중간 실패 시 부분 보존)
     if (buffer.length >= FLUSH_THRESHOLD) await flush();
 
+    lastReachedPage = page;
+
     if (args.maxPages && page >= args.maxPages) {
       console.log(`[cctv] --max-pages=${args.maxPages} 도달 → 종료`);
+      stopReason = 'max_pages';
       break;
     }
   }
@@ -283,6 +333,25 @@ async function seedCctv() {
   if (firstMatched) console.log('[cctv] sample[0]:', firstMatched);
   if (args.dryRun) console.log('[cctv] --dry-run → DB 작업 생략');
   else console.log(`[cctv] ✅ 완료: ${totalInserted} rows`);
+
+  // skip / 미시드 페이지 로그 저장 (부분 재시드 지원)
+  const estimatedTotalPages = totalCount > 0 ? Math.ceil(totalCount / CCTV_PAGE_SIZE) : 0;
+  const missedFrom = lastReachedPage + 1;
+  const missedRange: [number, number] | null =
+    stopReason === 'consecutive_failures' && estimatedTotalPages > 0 && missedFrom <= estimatedTotalPages
+      ? [missedFrom, estimatedTotalPages]
+      : null;
+  saveSkipLog({
+    target: 'cctv',
+    stopReason,
+    totalCount,
+    estimatedTotalPages,
+    lastReachedPage,
+    totalInserted,
+    skippedPages,
+    missedRange,
+    timestamp: new Date().toISOString(),
+  });
 }
 
 // ============================================================
@@ -368,6 +437,8 @@ async function seedLamp() {
     return;
   }
 
+  let totalCount = 0;
+
   // 디버그: 전체 row 수 확인 (1회)
   try {
     const debugUrl = new URL(LAMP_API);
@@ -377,9 +448,10 @@ async function seedLamp() {
     debugUrl.searchParams.set('type', 'json');
     const debugRes = await fetchWithRetry(debugUrl);
     const debugJson = await debugRes.json();
-    const totalCount = debugJson?.response?.body?.totalCount;
+    const tc = debugJson?.response?.body?.totalCount;
+    totalCount = Number(tc) || 0;
     console.log(
-      `[lamp] totalCount = ${totalCount} (예상 페이지 수 @numOfRows=${LAMP_PAGE_SIZE} = ${Math.ceil(Number(totalCount) / LAMP_PAGE_SIZE)})`,
+      `[lamp] totalCount = ${totalCount} (예상 페이지 수 @numOfRows=${LAMP_PAGE_SIZE} = ${Math.ceil(totalCount / LAMP_PAGE_SIZE)})`,
     );
   } catch (err) {
     console.warn('[lamp] totalCount 조회 실패:', (err as Error).message);
@@ -390,6 +462,9 @@ async function seedLamp() {
   let buffer: LampSeedRow[] = [];
   let firstMatched: LampSeedRow | null = null;
   const FLUSH_THRESHOLD = 500;
+  const skippedPages: number[] = [];
+  let lastReachedPage = 0;
+  let stopReason: StopReason = 'completed';
 
   // dry-run 이 아니면 시작 시 한 번만 lamps 비움 (streaming INSERT 전 한 번)
   if (!args.dryRun) {
@@ -422,11 +497,13 @@ async function seedLamp() {
       list = await fetchLampPage(page, LAMP_PAGE_SIZE);
     } catch (err) {
       failedPages++;
+      skippedPages.push(page);
       console.warn(
         `[lamp] page=${page} 실패 (${failedPages}/${MAX_CONSECUTIVE_FAILURES}) → skip: ${(err as Error).message}`,
       );
       if (failedPages >= MAX_CONSECUTIVE_FAILURES) {
         console.error('[lamp] 연속 실패 한도 초과 → 시드 중단 (이미 INSERT 된 부분은 보존)');
+        stopReason = 'consecutive_failures';
         break;
       }
       // 잔여 buffer 라도 flush 후 다음 페이지로
@@ -437,6 +514,8 @@ async function seedLamp() {
 
     if (list.length === 0) {
       console.log(`[lamp] page=${page} 빈 응답 → 종료`);
+      lastReachedPage = page - 1;
+      stopReason = 'empty_response';
       break;
     }
     totalFetched += list.length;
@@ -463,8 +542,11 @@ async function seedLamp() {
     // 버퍼가 임계치 넘으면 즉시 INSERT (중간 실패 시 부분 보존)
     if (buffer.length >= FLUSH_THRESHOLD) await flush();
 
+    lastReachedPage = page;
+
     if (args.maxPages && page >= args.maxPages) {
       console.log(`[lamp] --max-pages=${args.maxPages} 도달 → 종료`);
+      stopReason = 'max_pages';
       break;
     }
   }
@@ -477,6 +559,25 @@ async function seedLamp() {
   if (firstMatched) console.log('[lamp] sample[0]:', firstMatched);
   if (args.dryRun) console.log('[lamp] --dry-run → DB 작업 생략');
   else console.log(`[lamp] ✅ 완료: ${totalInserted} rows`);
+
+  // skip / 미시드 페이지 로그 저장 (부분 재시드 지원)
+  const estimatedTotalPages = totalCount > 0 ? Math.ceil(totalCount / LAMP_PAGE_SIZE) : 0;
+  const missedFrom = lastReachedPage + 1;
+  const missedRange: [number, number] | null =
+    stopReason === 'consecutive_failures' && estimatedTotalPages > 0 && missedFrom <= estimatedTotalPages
+      ? [missedFrom, estimatedTotalPages]
+      : null;
+  saveSkipLog({
+    target: 'lamp',
+    stopReason,
+    totalCount,
+    estimatedTotalPages,
+    lastReachedPage,
+    totalInserted,
+    skippedPages,
+    missedRange,
+    timestamp: new Date().toISOString(),
+  });
 }
 
 // ============================================================
