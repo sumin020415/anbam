@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { getPostList, POSTS_PAGE_SIZE } from '@/lib/services/posts';
 import PostList from '@/components/post/PostList';
+import FloatingWriteButton from '@/components/post/FloatingWriteButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +54,8 @@ export default async function PostsPage() {
       ) : (
         <PostList initial={posts} />
       )}
+
+      <FloatingWriteButton />
     </main>
   );
 }
