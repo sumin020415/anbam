@@ -39,9 +39,10 @@
 | 💬 댓글 + 대댓글 (계층 트리, depth 0~2 들여쓰기) | ✅ |
 | 👍👎 좋아요 / 싫어요 (복합 PK upsert, 토글/전환) | ✅ |
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 (종류별 색 + InfoWindow) | ✅ |
+| 🗂 자치구 단위 클러스터링 (줌 ≥ 5 = 클러스터 / < 5 = 개별 핀) | ✅ |
 | 📍 게시글 위치 picker (지도 클릭 → 좌표/주소 자동 채움) | ✅ |
 | 📷 이미지 업로드 (Supabase Storage, 글당 1장, 5MB 제한) | ✅ |
-| 🎥 부산 CCTV/보안등 시드 스크립트 (data.go.kr 공공데이터) | ✅ |
+| 🎥 부산 CCTV/보안등 시드 스크립트 (data.go.kr 공공데이터, streaming INSERT + 5xx retry + page skip) | ✅ |
 
 ---
 
@@ -157,7 +158,7 @@ src/
 ├── components/
 │   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드) / DeleteButton / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
-│   ├── map/                          # KakaoMap (래퍼) / MapHome (메인 홈) / MapPin (종류별 색 + InfoWindow)
+│   ├── map/                          # KakaoMap (래퍼) / MapHome (메인 홈 + 줌 분기) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구 클러스터, count) / clusterByDistrict (자치구 그룹핑 utility)
 │   ├── auth/LogoutButton.tsx
 │   └── layout/Header.tsx
 ├── hooks/                            # useUser (onAuthStateChange 구독)
@@ -168,18 +169,21 @@ src/
 └── proxy.ts                          # 세션 자동 갱신 (Next.js 16, `export async function proxy(req)` + matcher config)
 
 scripts/
-└── seed-pins.ts                      # 부산 CCTV/보안등 시드 (data.go.kr, streaming INSERT)
+└── seed-pins.ts                      # 부산 CCTV/보안등 시드 (data.go.kr, streaming INSERT + 5xx retry + page skip)
+
+docs/
+└── schema.sql                        # Supabase 통합 SQL — 6테이블 + RLS + 트리거 + Storage 정책 + Data API GRANT
 ```
 
-### 데이터 소스 (Phase 7 — 2026-05-13 기준)
+### 데이터 소스 (Phase 7.5 — 2026-05-15 기준)
 
 | 종류 | 출처 | 수정/기준일 | 부산 row |
 |------|------|------------|---------|
-| CCTV | 행정안전부_CCTV정보 조회서비스 (data.go.kr, OpenAPI) | 일간 갱신 | 3,017 |
-| 보안등 | 전국보안등정보표준데이터 (data.go.kr, OpenAPI) | 2025-12-01 | 37 |
+| CCTV | 행정안전부_CCTV정보 조회서비스 (data.go.kr, OpenAPI) | 일간 갱신 | **5,554** |
+| 보안등 | 전국보안등정보표준데이터 (data.go.kr, OpenAPI) | 2025-12-01 | 37 _(재시드 진행 예정)_ |
 
-> CCTV 는 전국 ~35만 row 중 부산만 필터한 1차 시드. data.go.kr 게이트웨이 일시 timeout 으로 22.7% 진행 후 중단되어 향후 재시드로 보강 예정 (목표 ~14,000건).
-> 보안등은 표준데이터 등록 자치단체 데이터만 포함되어 부산 강서구 일부만 표시됩니다. 향후 부산광역시 자체 데이터 포털 등 다른 소스 검토 예정.
+> CCTV 는 전국 35만 row 중 부산만 필터한 누적 시드. data.go.kr 게이트웨이 일시 timeout 으로 39.4% 진행 후 종료, 향후 부분 재시드로 보강 예정 (목표 ~14,000건).
+> 보안등은 어제 `--max-pages=1` 로 1 페이지만 시드해 37 row 만 들어가 있는 상태. 풀 시드 시 표준데이터 row 정렬이 자치단체 코드별 분산되어 있어 **부산 ~60,000~80,000 row 도달 예상**. 안전망(streaming INSERT + page skip) 적용된 코드로 재시드 예정.
 
 ### 데이터 레이어 분리 원칙
 컴포넌트/페이지는 **`supabase.from(...)` 을 직접 호출하지 않고** `lib/services/*.ts` 의 함수만 사용. 향후 React Native 클라이언트 추가 시 `services / schemas` 폴더가 그대로 이동 가능하도록 설계.
