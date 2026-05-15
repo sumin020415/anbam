@@ -385,11 +385,56 @@ async function seedLamp() {
     console.warn('[lamp] totalCount 조회 실패:', (err as Error).message);
   }
 
-  const busan: LampSeedRow[] = [];
   let totalFetched = 0;
+  let totalInserted = 0;
+  let buffer: LampSeedRow[] = [];
+  let firstMatched: LampSeedRow | null = null;
+  const FLUSH_THRESHOLD = 500;
+
+  // dry-run 이 아니면 시작 시 한 번만 lamps 비움 (streaming INSERT 전 한 번)
+  if (!args.dryRun) {
+    console.log('[lamp] 기존 lamps 데이터 삭제 중…');
+    const { error: delErr } = await admin.from('lamps').delete().gt('id', 0);
+    if (delErr) {
+      console.error('[lamp:delete]', delErr);
+      throw new Error('보안등 시드 실패 (기존 데이터 삭제)');
+    }
+  }
+
+  const flush = async () => {
+    if (args.dryRun || buffer.length === 0) return;
+    const { error } = await admin.from('lamps').insert(buffer);
+    if (error) {
+      console.error('[lamp:insert]', error);
+      throw new Error(`보안등 시드 실패 (INSERT, totalInserted=${totalInserted})`);
+    }
+    totalInserted += buffer.length;
+    console.log(`[lamp] flushed ${buffer.length} → totalInserted=${totalInserted}`);
+    buffer = [];
+  };
+
+  let failedPages = 0;
+  const MAX_CONSECUTIVE_FAILURES = 10; // 연속 실패 한도
 
   for (let page = 1; ; page++) {
-    const list = await fetchLampPage(page, LAMP_PAGE_SIZE);
+    let list: LampApiRow[];
+    try {
+      list = await fetchLampPage(page, LAMP_PAGE_SIZE);
+    } catch (err) {
+      failedPages++;
+      console.warn(
+        `[lamp] page=${page} 실패 (${failedPages}/${MAX_CONSECUTIVE_FAILURES}) → skip: ${(err as Error).message}`,
+      );
+      if (failedPages >= MAX_CONSECUTIVE_FAILURES) {
+        console.error('[lamp] 연속 실패 한도 초과 → 시드 중단 (이미 INSERT 된 부분은 보존)');
+        break;
+      }
+      // 잔여 buffer 라도 flush 후 다음 페이지로
+      await flush();
+      continue;
+    }
+    failedPages = 0; // 성공 시 카운터 리셋
+
     if (list.length === 0) {
       console.log(`[lamp] page=${page} 빈 응답 → 종료`);
       break;
@@ -400,19 +445,23 @@ async function seedLamp() {
     for (const row of list) {
       const mapped = mapLamp(row);
       if (mapped) {
+        if (!firstMatched) firstMatched = mapped;
         // 디버그: 처음 5개 부산 매칭 row 의 원본 주소 출력
-        if (busan.length < 5) {
+        if (totalInserted + buffer.length < 5) {
           console.log(
             `[lamp:debug:busan] rdnmadr="${row.rdnmadr}", lnmadr="${row.lnmadr}", insttNm="${row.insttNm}"`,
           );
         }
-        busan.push(mapped);
+        buffer.push(mapped);
         matchedThisPage++;
       }
     }
     console.log(
-      `[lamp] page=${page} fetched=${list.length} totalFetched=${totalFetched} busanTotal=${busan.length} (+${matchedThisPage})`,
+      `[lamp] page=${page} fetched=${list.length} totalFetched=${totalFetched} busanBuffer=${buffer.length} totalInserted=${totalInserted} (+${matchedThisPage})`,
     );
+
+    // 버퍼가 임계치 넘으면 즉시 INSERT (중간 실패 시 부분 보존)
+    if (buffer.length >= FLUSH_THRESHOLD) await flush();
 
     if (args.maxPages && page >= args.maxPages) {
       console.log(`[lamp] --max-pages=${args.maxPages} 도달 → 종료`);
@@ -420,37 +469,14 @@ async function seedLamp() {
     }
   }
 
-  console.log(`[lamp] 전체 fetched=${totalFetched}, 부산 매칭=${busan.length}`);
-  if (busan[0]) console.log('[lamp] sample[0]:', busan[0]);
+  // 마지막 잔여 버퍼 INSERT
+  await flush();
 
-  if (args.dryRun) {
-    console.log('[lamp] --dry-run → DB 작업 생략');
-    return;
-  }
-  if (busan.length === 0) {
-    console.warn('[lamp] 부산 매칭 0건 → DB 작업 생략');
-    return;
-  }
-
-  console.log('[lamp] 기존 lamps 데이터 삭제 중…');
-  const { error: delErr } = await admin.from('lamps').delete().gt('id', 0);
-  if (delErr) {
-    console.error('[lamp:delete]', delErr);
-    throw new Error('보안등 시드 실패 (기존 데이터 삭제)');
-  }
-
-  console.log('[lamp] INSERT 시작 (chunk 500)…');
-  const CHUNK = 500;
-  for (let i = 0; i < busan.length; i += CHUNK) {
-    const chunk = busan.slice(i, i + CHUNK);
-    const { error } = await admin.from('lamps').insert(chunk);
-    if (error) {
-      console.error('[lamp:insert]', error);
-      throw new Error(`보안등 시드 실패 (INSERT, chunk offset=${i})`);
-    }
-    console.log(`[lamp] inserted ${Math.min(i + CHUNK, busan.length)} / ${busan.length}`);
-  }
-  console.log(`[lamp] ✅ 완료: ${busan.length} rows`);
+  const total = args.dryRun ? buffer.length : totalInserted;
+  console.log(`[lamp] 전체 fetched=${totalFetched}, 부산 매칭=${total}`);
+  if (firstMatched) console.log('[lamp] sample[0]:', firstMatched);
+  if (args.dryRun) console.log('[lamp] --dry-run → DB 작업 생략');
+  else console.log(`[lamp] ✅ 완료: ${totalInserted} rows`);
 }
 
 // ============================================================
