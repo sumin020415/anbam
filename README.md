@@ -40,6 +40,9 @@
 | 👍👎 좋아요 / 싫어요 (복합 PK upsert, 토글/전환) | ✅ |
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 (종류별 색 + InfoWindow) | ✅ |
 | 🗂 자치구 단위 클러스터링 (줌 ≥ 5 = 클러스터 / < 5 = 개별 핀) | ✅ |
+| 🔍 헤더 위치 검색 (Kakao Places + Geocoder 병렬, 명칭·도로명·지번 모두) | ✅ |
+| 🎚 핀 필터 토글 (전체/CCTV/보안등/제보, URL query `?filter=X` 기반) | ✅ |
+| 📌 검색·클릭 위치 파란 마커 + 주소 카드 + "여기에 제보 작성" Link (자동 좌표 채움) | ✅ |
 | 📍 게시글 위치 picker (지도 클릭 → 좌표/주소 자동 채움) | ✅ |
 | 📷 이미지 업로드 (Supabase Storage, 글당 1장, 5MB 제한) | ✅ |
 | 🎥 부산 CCTV/보안등 시드 스크립트 (data.go.kr 공공데이터, streaming INSERT + 5xx retry + page skip + skip 페이지 JSON 로그) | ✅ |
@@ -159,15 +162,16 @@ src/
 │   ├── auth/callback/                # PKCE 코드 교환 (resetPasswordForEmail 등)
 │   └── api/auth/check-email/         # 이메일 중복확인 (service_role)
 ├── components/
-│   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
+│   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드 + `?lat&lng` query 마운트 자동 reverseGeocode) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
-│   ├── map/                          # KakaoMap (래퍼) / MapHome (메인 홈 + 줌 분기) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구 클러스터, count) / clusterByDistrict (자치구 그룹핑 utility)
+│   ├── map/                          # KakaoMap (래퍼, onMapCreate) / MapHome (메인 홈 + 줌 분기 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구 클러스터, count) / clusterByDistrict (자치구 그룹핑 utility)
 │   ├── auth/LogoutButton.tsx
-│   └── layout/                       # Header / ScrollToTopButton (모든 메인 페이지, 200px+ floating ↑)
+│   └── layout/                       # Header (중앙: 필터 토글 + 검색) / HeaderSearchBox (Places + Geocoder 병렬, debounce 500ms) / PinFilterToggle (4 segmented, ?filter URL query) / ScrollToTopButton (모든 메인 페이지, 200px+ floating ↑)
 ├── hooks/                            # useUser (onAuthStateChange 구독)
 ├── lib/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
+│   ├── utils/                        # server-safe utility (server/client 양쪽 import 가능) — pinFilter (타입/가드/OPTIONS)
 │   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins/storage)
 └── proxy.ts                          # 세션 자동 갱신 (Next.js 16, `export async function proxy(req)` + matcher config)
 
