@@ -85,6 +85,24 @@ export default function PostForm({ mode, postId, initial }: Props) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  // 초기 lat/lng 가 있는데 address 가 비어있으면 마운트 시 자동 reverseGeocode
+  // (예: /posts/new?lat=Y&lng=X 로 진입한 경우)
+  const initialLat = initial?.lat;
+  const initialLng = initial?.lng;
+  const hasInitialAddress = !!initial?.address;
+  useEffect(() => {
+    if (initialLat == null || initialLng == null) return;
+    if (hasInitialAddress) return;
+    let cancelled = false;
+    reverseGeocode(initialLat, initialLng).then((addr) => {
+      if (cancelled || !addr) return;
+      setValue('address', addr, { shouldDirty: false });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialLat, initialLng, hasInitialAddress, setValue]);
+
   const handlePickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError(null);
     const picked = e.target.files?.[0] ?? null;

@@ -5,12 +5,37 @@ import PostForm from '@/components/post/PostForm';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewPostPage() {
+function parseLatLng(value: string | string[] | undefined): number | null {
+  if (typeof value !== 'string') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export default async function NewPostPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lat?: string; lng?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  const sp = await searchParams;
+  const lat = parseLatLng(sp.lat);
+  const lng = parseLatLng(sp.lng);
+  const initial =
+    lat !== null && lng !== null
+      ? {
+          title: '',
+          content: '',
+          image_url: null,
+          address: null,
+          lat,
+          lng,
+        }
+      : undefined;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8">
@@ -20,7 +45,7 @@ export default async function NewPostPage() {
       <h1 className="mt-4 mb-6 text-2xl font-bold text-ink-1">
         새 제보 작성
       </h1>
-      <PostForm mode="create" />
+      <PostForm mode="create" initial={initial} />
     </main>
   );
 }
