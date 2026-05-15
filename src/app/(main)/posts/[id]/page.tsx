@@ -8,7 +8,7 @@ import {
   getMyReaction,
 } from '@/lib/services/reactions';
 import ViewCountTrigger from '@/components/post/ViewCountTrigger';
-import DeleteButton from '@/components/post/DeleteButton';
+import MoreMenu from '@/components/post/MoreMenu';
 import ReactionButtons from '@/components/post/ReactionButtons';
 import CommentTree from '@/components/comment/CommentTree';
 
@@ -62,10 +62,11 @@ export default async function PostDetailPage({
 
         <div className="mt-3 flex items-center justify-between text-xs text-ink-2">
           <span>{post.profiles?.nickname ?? '익명'}</span>
-          <span className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <span>조회 {post.view_count}</span>
             <span>{formatDateTime(post.created_at)}</span>
-          </span>
+            {isOwner && <MoreMenu postId={post.id} />}
+          </div>
         </div>
 
         {post.image_url && (
@@ -91,18 +92,6 @@ export default async function PostDetailPage({
             isLoggedIn={!!user}
           />
         </div>
-
-        {isOwner && (
-          <div className="mt-8 flex justify-end gap-2">
-            <Link
-              href={`/posts/${post.id}/edit`}
-              className="rounded-anbam border border-line-1 bg-white px-4 py-2 text-sm font-bold text-ink-1"
-            >
-              수정
-            </Link>
-            <DeleteButton postId={post.id} />
-          </div>
-        )}
       </article>
 
       <CommentTree
