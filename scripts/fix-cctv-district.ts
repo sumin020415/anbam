@@ -114,12 +114,19 @@ type BrokenRow = {
   lng: number;
 };
 
+// CCTV 의 깨진 row 두 종류를 페이지네이션 + dedup 으로 모은다 (LAMP fix 와 동일 패턴):
+//   1) district not in (16 자치구 화이트리스트)
+//   2) dong 자리에 도로명 단편 포함 (`로/길/대로/거리/번길`)
+// 정상 자치구이지만 dong 이 도로명인 row 도 보정 대상.
 async function fetchBrokenRows(): Promise<BrokenRow[]> {
   const districtList = Array.from(BUSAN_DISTRICTS)
     .map((d) => `"${d}"`)
     .join(',');
+  const seen = new Set<number>();
   const all: BrokenRow[] = [];
   const pageSize = 1000;
+
+  // (1) district not in 16 자치구
   let from = 0;
   while (true) {
     const { data, error } = await admin
@@ -129,10 +136,38 @@ async function fetchBrokenRows(): Promise<BrokenRow[]> {
       .range(from, from + pageSize - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
-    all.push(...(data as unknown as BrokenRow[]));
+    for (const row of data as unknown as BrokenRow[]) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        all.push(row);
+      }
+    }
     if (data.length < pageSize) break;
     from += pageSize;
   }
+
+  // (2) dong 도로명 단편 — PostgREST or chain
+  from = 0;
+  while (true) {
+    const { data, error } = await admin
+      .from('cctvs')
+      .select('id, district, dong, lat, lng')
+      .or(
+        'dong.like.%로%,dong.like.%길%,dong.like.%대로%,dong.like.%거리%,dong.like.%번길%',
+      )
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of data as unknown as BrokenRow[]) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        all.push(row);
+      }
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
   return all;
 }
 
@@ -242,7 +277,9 @@ async function main() {
       console.warn(`[fix-cctv] id=${r.id} 실패: ${(err as Error).message}`);
     }
 
-    if ((i + 1) % 50 === 0 || i === rows.length - 1) {
+    // 진행 로그 — row 수에 따라 동적 간격 (1000 미만이면 50, 그 이상이면 500)
+    const logInterval = rows.length < 1000 ? 50 : 500;
+    if ((i + 1) % logInterval === 0 || i === rows.length - 1) {
       console.log(
         `[fix-cctv] 진행 ${i + 1}/${rows.length} (fixed=${fixed}, not_busan=${notBusan}, no_match=${noMatch}, errors=${errors})`,
       );

@@ -24,7 +24,10 @@ export type PostPin = {
   title: string;
 };
 
-export const PINS_FETCH_LIMIT = 20000;
+// LAMP 가 부산 68k+ row 라 20,000 한도면 29% 만 fetch → 자치구 모드에서 16 자치구 중 일부만 표시됨.
+// 75,000 은 LAMP 풀 시드 (68,168) + 여유분. CCTV 15k / Post 는 영향 X.
+// 첫 로드 ~6MB JSON — 부담 있지만 자치구 정확 표시 우선. 추후 Supabase RPC 자치구 카운트 함수로 대체 가능.
+export const PINS_FETCH_LIMIT = 75000;
 
 // Supabase PostgREST 의 기본 max-rows 한도 (Dashboard 설정 무관 안전 가정).
 // 단일 fetch 가 이 값 넘으면 잘림 → range() 로 페이지네이션.
