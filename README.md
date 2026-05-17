@@ -217,22 +217,22 @@ docs/
 └── schema.sql                        # Supabase 통합 SQL — 6테이블 + RLS + 트리거 + Storage 정책 + Data API GRANT
 ```
 
-### 데이터 소스 (Phase 7.5 — 2026-05-16 기준, 새 시드 진행 예정)
+### 데이터 소스 (Phase 7.5 — 2026-05-17 기준, 새 시드 + 보정 완료 ⭐)
 
-| 종류 | 출처 | 수정/기준일 | 부산 row (이전 시드 + 자치구·동 보정 후) |
+| 종류 | 출처 | 수정/기준일 | 부산 row (`npm run seed:all` 결과) |
 |------|------|------------|---------|
-| CCTV | 행정안전부_CCTV정보 조회서비스 (data.go.kr, OpenAPI) | 일간 갱신 | **6,781** (3차 시드 + 자치구 보정 100% — 강서구·남구 782 row 복구) |
-| 보안등 | 전국보안등정보표준데이터 (data.go.kr, OpenAPI) | 2025-12-01 | **68,168** (풀 시드 + LAMP 3 row 수동 SQL — 자치구 동구만 데이터 한계로 0) |
+| CCTV | 행정안전부_CCTV정보 조회서비스 (data.go.kr, OpenAPI) | 일간 갱신 | **15,277** (4차 시드 + fix-cctv-district 1,885 row 100% 보정) |
+| 보안등 | 전국보안등정보표준데이터 (data.go.kr, OpenAPI) | 2025-12-01 | **68,168** (풀 시드 + fix-lamp-district 35,006 row 100% 보정) |
 
-> **자치구·동 보정 (Phase 7.5)** — 시드 매핑이 `parts[1]/parts[2]` 가정으로 깨지는 두 패턴 발견:
-> 1) CCTV 의 강서구·남구 784 row 의 district 자리에 동/도로명 단편 — 자치단체별로 "부산광역시 명지동..." 같이 자치구 토큰 누락 표기 존재
-> 2) LAMP 의 35,005 row (51.4%) 의 dong 자리에 도로명 단편 "용소로52-2" 등 — `rdnmadr` (도로명) 만 있고 `lnmadr` (지번) 빈 row 가 자치단체별로 극단 (남구·영도구·연제구·부산진구·수영구 ~100% 도로명 / 강서구·기장군·동래구·북구·사상구 0%)
+> **자치구·동 보정 (Phase 7.5)** — 시드 매핑이 `parts[1]/parts[2]` 가정으로 깨지는 두 패턴이 발견되어 별도 보정 스크립트 (Kakao Local REST API `coord2regioncode`) 작성:
+> 1) CCTV 의 강서구·남구 row 의 district 자리에 동/도로명 단편 — 자치단체별로 "부산광역시 명지동..." 같이 자치구 토큰 누락 표기 존재. **이번 시드에서 1,885 row 발견 + 100% 복구**
+> 2) LAMP 의 ~51% row 의 dong 자리에 도로명 단편 "용소로52-2" 등 — `rdnmadr` (도로명) 만 있고 `lnmadr` (지번) 빈 row 가 자치단체별로 극단 (남구·영도구·연제구·부산진구·수영구 ~100% 도로명 / 강서구·기장군·동래구·북구·사상구 0%). **이번 시드에서 35,006 row 발견 + 100% 복구**
 >
-> → `scripts/fix-cctv-district.ts` / `scripts/fix-lamp-district.ts` 가 Kakao Local REST API `coord2regioncode` 로 좌표 → 행정구역 reverse geocoding 보정. `npm run seed:all` chain 으로 새 시드 시 자동 호출.
+> → `scripts/fix-cctv-district.ts` / `scripts/fix-lamp-district.ts` 가 Kakao Local REST API 로 좌표 → 행정구역 reverse geocoding. **`npm run seed:all` 한 명령에 자동 chain** 으로 미래 재시드도 영구 깨끗.
 >
-> **CCTV 는 전국 ~37만 row 중 부산만 필터한 누적 시드 이력** (1차 3,017 → 2차 5,554 → 3차 **6,781**). data.go.kr 게이트웨이 일시 timeout 으로 page 1,630/3,745 (43.5%) 진행 후 종료 — skip 페이지 15 개 + 미시드 범위 2,115 페이지 (`seed-skipped-cctv-*.json` 자동 기록). 향후 부분 재시드 CLI (`--pages=N`, `--append`, `--retry-from=*.json`) 추가 후 보강 예정 (목표 ~15,000건).
+> **CCTV 자치구별 분포 (16 개 모두 표시 ⭐)** — 수영구 1,851 / 기장군 1,529 / 금정구 1,300 / 사하구 1,037 / 부산진구 1,014 / 강서구 1,014 / 동래구 989 / 연제구 939 / 영도구 915 / 북구 885 / 사상구 876 / 남구 861 / 해운대구 752 / 서구 569 / 중구 421 / 동구 325. **4차 시드 결과 — 어제 3차 (6,781) 의 225%**, 1차 (3,017) 의 506%. data.go.kr 게이트웨이 일시 timeout 으로 page 3,370/3,544 (95.1%) 진행 후 종료 — skip 페이지 44 개 + 미시드 범위 174 페이지 (`seed-skipped-cctv-*.json` 자동 기록). 향후 부분 재시드 CLI (`--pages=N`, `--append`, `--retry-from=*.json`) 추가 후 ~800 row 추가 가능 (목표 ~16,000).
 >
-> **보안등은 전국 ~183만 row 중 부산만 필터한 풀 시드 결과 68,168 row** (page 1,829/1,829 전체 완주). 표준데이터의 row 정렬이 자치단체 코드별 분산이라 부산 row 가 페이지 곳곳에 흩어져 있음. 안전망 (streaming INSERT + page skip + skip JSON 로그) 적용된 코드로 ECONNRESET 없이 완주.
+> **LAMP 자치구별 분포 (16 개 모두 표시 ⭐⭐)** — 부산진구 8,623 / 기장군 5,948 / 사하구 5,683 / 강서구 5,613 / 금정구 4,907 / 동래구 4,645 / 남구 4,445 / 영도구 4,247 / 사상구 4,188 / 서구 3,843 / 해운대구 3,785 / 북구 3,740 / 연제구 3,312 / 수영구 3,179 / 중구 2,005 / **동구 5** (Kakao API 가 좌표 기반으로 동구 행정구역 row 5 개 발견 — 어제 "원본 데이터 한계로 동구 0" 가정도 미세 부정). 전국 ~183만 row 중 부산만 필터한 풀 시드 결과 page 1,829/1,829 전체 완주.
 
 ### 데이터 레이어 분리 원칙
 컴포넌트/페이지는 **`supabase.from(...)` 을 직접 호출하지 않고** `lib/services/*.ts` 의 함수만 사용. 향후 React Native 클라이언트 추가 시 `services / schemas` 폴더가 그대로 이동 가능하도록 설계.
