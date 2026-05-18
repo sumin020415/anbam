@@ -18,6 +18,8 @@
 | Database | Supabase (PostgreSQL + RLS) |
 | Storage | Supabase Storage |
 | Map | Kakao Map JS SDK + react-kakao-maps-sdk |
+| Charts | Chart.js + react-chartjs-2 (분석 페이지) |
+| Animation | Framer Motion (Tab 펼침/접힘) |
 | Form | React Hook Form + Zod |
 | Hosting | Vercel (main 푸시 시 자동 배포) |
 
@@ -50,6 +52,7 @@
 | ⋯ 케밥 메뉴 (게시글 헤더 우측, 수정/삭제 통합, 외부 클릭 감지) | ✅ |
 | ✏️ Floating 작성 버튼 (게시판 우하단 + 비로그인 시 로그인 페이지) | ✅ |
 | ⬆ 스크롤 탑 버튼 (스크롤 200px+ 시 우하단 floating, smooth scroll) | ✅ |
+| 📊 분석 페이지 (`/analysis`) — 부산 SVG 자치구 클릭 + 사이드 패널 (인구 대비 안전 점수) + 3 Tab Chart.js (제보 수 / CCTV·보안등 누적 / KST 시계열) + framer-motion 펼침 | ✅ |
 
 ---
 
@@ -185,6 +188,7 @@ src/
 │   ├── (auth)/                       # 회원가입/로그인/비밀번호 찾기·재설정 (라우트 그룹)
 │   ├── (main)/                       # 헤더 공유 (라우트 그룹)
 │   │   ├── page.tsx                  # 지도 메인 (CCTV/보안등/제보 핀)
+│   │   ├── analysis/page.tsx         # 분석 페이지 (서버 컴포넌트, Promise.all 4 services + revalidate 5분)
 │   │   ├── posts/                    # 게시판
 │   │   │   ├── page.tsx              # 목록 + 페이지네이션
 │   │   │   ├── new/page.tsx          # 작성
@@ -195,6 +199,7 @@ src/
 │   ├── auth/callback/                # PKCE 코드 교환 (resetPasswordForEmail 등)
 │   └── api/auth/check-email/         # 이메일 중복확인 (service_role)
 ├── components/
+│   ├── analysis/                     # BusanSvg (수동 변환, 16 path id 보존, controlled props) / BusanMap (getBBox 라벨 + 위험·안전 범례 + mx-auto lg:mx-0) / DistrictBarChart (Tab 1 제보 수) / InfraStackedBar (Tab 2 CCTV+LAMP 누적) / PerCapitaPanel (사이드 — 인구·밀도·1대당·안전 점수) / TrendLineChart (Tab 3 일별/시간대 Line) / AnalysisTabs (orchestration — lg:items-center + 3 Tab + AnimatePresence)
 │   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드 + `?lat&lng` query 마운트 자동 reverseGeocode) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
 │   ├── map/                          # KakaoMap (래퍼, onMapCreate) / MapHome (메인 홈 + 3단 줌 분기 자치구·동·개별 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구·동 클러스터, count, sizeOf 36~48px, CustomOverlayMap zIndex) / clusterByDistrict (BUSAN_DISTRICTS 16 화이트리스트 + BUSAN_DISTRICT_CENTER 시내 5 자치구 분산 좌표 + clusterByDistrict + clusterByDong + normalizeDong 5 단계 정규화: 비정상값 skip → 도로명 skip → 도로명+번지 skip → 첫 (동|읍|면) lazy 추출 → 행정→법정)
@@ -205,7 +210,8 @@ src/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
 │   ├── utils/                        # server-safe utility (server/client 양쪽 import 가능) — pinFilter (타입/가드/OPTIONS)
-│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins[1000-row range pagination, PINS_FETCH_LIMIT=75000 — LAMP 68k 전체 fetch]/storage)
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins[1000-row range pagination, PINS_FETCH_LIMIT=75000 — LAMP 68k 전체 fetch]/storage/analytics[자치구 카운트 N 병렬 + KST 시계열])
+├── data/                             # 정적 데이터 — busanStatic.ts (헬퍼) + gu_name + population + population_density JSON (분석 페이지)
 └── proxy.ts                          # 세션 자동 갱신 (Next.js 16, `export async function proxy(req)` + matcher config)
 
 scripts/
@@ -215,6 +221,9 @@ scripts/
 
 docs/
 └── schema.sql                        # Supabase 통합 SQL — 6테이블 + RLS + 트리거 + Storage 정책 + Data API GRANT
+
+public/
+└── Busan.svg                         # 부산 16 자치구 SVG (원본 nightsafe 자산, BusanSvg.tsx 의 path 데이터 원본)
 ```
 
 ### 데이터 소스 (Phase 7.5 — 2026-05-17 기준, 새 시드 + 보정 완료 ⭐)
@@ -277,7 +286,7 @@ docs/
 | 🎚 핀 필터 토글 | 4 segmented (전체/CCTV/보안등/제보) URL query 기반 | ✅ |
 | ✨ UX 보강 | 케밥 메뉴 / 스크롤 탑 / Floating 작성 | ✅ |
 | 🔁 CCTV 부분 재시드 CLI | `--pages=N` / `--append` / `--retry-from=*.json` + unique constraint → CCTV ~15,000 row 도달 | ⏳ |
-| 📊 분석 페이지 | 원본 nightsafe parity — 부산 SVG 자치구 클릭 + Chart.js 자치구별 제보/인구 대비 보안등 (헤더 "분석" 회색 비활성 해소) | ⏳ |
+| 📊 분석 페이지 (`/analysis`) | 부산 SVG 자치구 클릭 (16 path id 보존, 수동 변환) + 사이드 패널 (인구·밀도·CCTV/LAMP 1대당·안전 점수) + 3 Tab Chart.js (제보 수 / CCTV+LAMP 누적 / KST 일별·시간대 Line) + framer-motion 펼침/접힘 + Header 분석 메뉴 활성화 + `shrink-0` (긴 본문 페이지 헤더 압축 방지) | ✅ |
 | 🗨 게시글 카드 댓글 수 + 인기 게시글 사이드바 (좋아요 상위 5) | 원본 nightsafe parity 마지막 | ⏳ |
 | 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본) + 포트폴리오 사이트 카드 추가 | ⏳ |
 
