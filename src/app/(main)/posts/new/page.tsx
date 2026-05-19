@@ -38,9 +38,13 @@ export default async function NewPostPage({
       : undefined;
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8">
-      <Link href="/posts" className="text-sm text-ink-2 underline">
-        ← 목록으로
+    <main className="mx-auto w-full max-w-4xl px-4 py-8">
+      <Link
+        href="/posts"
+        className="inline-flex items-center gap-1 rounded-anbam border border-line-1 bg-white px-3.5 py-2 text-sm font-bold text-ink-1 shadow-card transition hover:border-point"
+      >
+        <span aria-hidden>←</span>
+        <span>목록으로</span>
       </Link>
       <h1 className="mt-4 mb-6 text-2xl font-bold text-ink-1">
         새 제보 작성

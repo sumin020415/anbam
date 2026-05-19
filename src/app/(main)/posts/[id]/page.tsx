@@ -10,6 +10,7 @@ import {
 import ViewCountTrigger from '@/components/post/ViewCountTrigger';
 import MoreMenu from '@/components/post/MoreMenu';
 import ReactionButtons from '@/components/post/ReactionButtons';
+import PostLocation from '@/components/post/PostLocation';
 import CommentTree from '@/components/comment/CommentTree';
 
 export const dynamic = 'force-dynamic';
@@ -45,17 +46,18 @@ export default async function PostDetailPage({
   const isOwner = !!user && user.id === post.author_id;
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8">
+    <main className="mx-auto w-full max-w-4xl px-4 py-8">
       <ViewCountTrigger postId={post.id} />
 
       <Link
         href="/posts"
-        className="text-sm text-ink-2 underline"
+        className="inline-flex items-center gap-1 rounded-anbam border border-line-1 bg-white px-3.5 py-2 text-sm font-bold text-ink-1 shadow-card transition hover:border-point"
       >
-        ← 목록으로
+        <span aria-hidden>←</span>
+        <span>목록으로</span>
       </Link>
 
-      <article className="mt-4 rounded-anbam bg-white p-6 shadow-card">
+      <article className="mt-4 rounded-anbam bg-white p-6 shadow-card sm:p-8">
         <h1 className="text-2xl font-bold text-ink-1 break-words">
           {post.title}
         </h1>
@@ -83,6 +85,12 @@ export default async function PostDetailPage({
         <div className="mt-6 whitespace-pre-wrap text-base text-ink-1 leading-relaxed">
           {post.content}
         </div>
+
+        <PostLocation
+          lat={post.lat}
+          lng={post.lng}
+          address={post.address}
+        />
 
         <div className="mt-6 flex justify-center">
           <ReactionButtons
