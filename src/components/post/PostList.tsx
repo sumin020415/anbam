@@ -2,18 +2,21 @@
 
 import { useState } from 'react';
 import {
-  getPostList,
+  getPosts,
   POSTS_PAGE_SIZE,
   type PostRow,
+  type PostSort,
 } from '@/lib/services/posts';
 import { createClient } from '@/lib/supabase/client';
 import PostCard from './PostCard';
 
 type Props = {
   initial: PostRow[];
+  sort: PostSort;
+  query: string;
 };
 
-export default function PostList({ initial }: Props) {
+export default function PostList({ initial, sort, query }: Props) {
   const [posts, setPosts] = useState<PostRow[]>(initial);
   const [hasMore, setHasMore] = useState(initial.length === POSTS_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
@@ -23,7 +26,9 @@ export default function PostList({ initial }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const next = await getPostList(createClient(), {
+      const next = await getPosts(createClient(), {
+        sort,
+        q: query,
         limit: POSTS_PAGE_SIZE,
         offset: posts.length,
       });
@@ -40,9 +45,9 @@ export default function PostList({ initial }: Props) {
 
   return (
     <>
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {posts.map((post) => (
-          <li key={post.id}>
+          <li key={post.id} className="h-full">
             <PostCard post={post} />
           </li>
         ))}
