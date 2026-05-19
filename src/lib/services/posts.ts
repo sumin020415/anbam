@@ -17,12 +17,19 @@ export type PostRow = {
   view_count: number;
   created_at: string;
   profiles: { nickname: string | null } | null;
+  comments?: { count: number }[];
+  like_count?: number;
+  dislike_count?: number;
 };
+
+export type PostSort = 'latest' | 'likes' | 'dislikes' | 'views' | 'comments';
 
 export const POSTS_PAGE_SIZE = 20;
 
 const POST_SELECT =
   'id, author_id, title, content, image_url, lat, lng, address, view_count, created_at, profiles!posts_author_id_fkey(nickname)';
+
+const POST_SELECT_WITH_COMMENT_COUNT = `${POST_SELECT}, comments(count)`;
 
 function toKoreanPostError(error: {
   code?: string;
@@ -49,18 +56,169 @@ function toKoreanPostError(error: {
   return '게시글 처리 중 오류가 발생했습니다.';
 }
 
-export async function getPostList(
+async function attachReactionCounts(
   client: SupabaseClient,
-  opts: { limit?: number; offset?: number } = {},
+  rows: PostRow[],
 ): Promise<PostRow[]> {
-  const { limit = POSTS_PAGE_SIZE, offset = 0 } = opts;
+  if (rows.length === 0) return rows;
+  const ids = rows.map((r) => r.id);
   const { data, error } = await client
+    .from('reactions')
+    .select('post_id, type')
+    .in('post_id', ids);
+  if (error) {
+    console.error('[posts] attachReactionCounts error:', error);
+    return rows;
+  }
+  const likeMap = new Map<string, number>();
+  const dislikeMap = new Map<string, number>();
+  for (const r of (data ?? []) as { post_id: string; type: string }[]) {
+    const map = r.type === 'like' ? likeMap : dislikeMap;
+    map.set(r.post_id, (map.get(r.post_id) ?? 0) + 1);
+  }
+  return rows.map((r) => ({
+    ...r,
+    like_count: likeMap.get(r.id) ?? 0,
+    dislike_count: dislikeMap.get(r.id) ?? 0,
+  }));
+}
+
+function escapeIlikeTerm(q: string): string {
+  return q.replace(/([%_])/g, '\\$1');
+}
+
+function applySearch<T extends { or: (q: string) => T }>(
+  query: T,
+  q: string | undefined,
+): T {
+  if (!q || q.trim().length === 0) return query;
+  const term = escapeIlikeTerm(q.trim());
+  return query.or(`title.ilike.%${term}%,content.ilike.%${term}%`);
+}
+
+async function getPostsByLatest(
+  client: SupabaseClient,
+  limit: number,
+  offset: number,
+  q?: string,
+): Promise<PostRow[]> {
+  const base = client
     .from('posts')
-    .select(POST_SELECT)
+    .select(POST_SELECT_WITH_COMMENT_COUNT)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
+  const { data, error } = await applySearch(base, q);
   if (error) throw new Error(toKoreanPostError(error));
-  return (data ?? []) as unknown as PostRow[];
+  return attachReactionCounts(client, (data ?? []) as unknown as PostRow[]);
+}
+
+async function getPostsByViews(
+  client: SupabaseClient,
+  limit: number,
+  offset: number,
+  q?: string,
+): Promise<PostRow[]> {
+  const base = client
+    .from('posts')
+    .select(POST_SELECT_WITH_COMMENT_COUNT)
+    .order('view_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  const { data, error } = await applySearch(base, q);
+  if (error) throw new Error(toKoreanPostError(error));
+  return attachReactionCounts(client, (data ?? []) as unknown as PostRow[]);
+}
+
+async function getPostsByExternalCount(
+  client: SupabaseClient,
+  countMap: Map<string, number>,
+  limit: number,
+  offset: number,
+  q?: string,
+): Promise<PostRow[]> {
+  const base = client.from('posts').select(POST_SELECT_WITH_COMMENT_COUNT);
+  const { data, error } = await applySearch(base, q);
+  if (error) throw new Error(toKoreanPostError(error));
+  const rows = await attachReactionCounts(
+    client,
+    (data ?? []) as unknown as PostRow[],
+  );
+  rows.sort((a, b) => {
+    const ma = countMap.get(a.id) ?? 0;
+    const mb = countMap.get(b.id) ?? 0;
+    if (mb !== ma) return mb - ma;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+  return rows.slice(offset, offset + limit);
+}
+
+async function getPostsByReaction(
+  client: SupabaseClient,
+  type: 'like' | 'dislike',
+  limit: number,
+  offset: number,
+  q?: string,
+): Promise<PostRow[]> {
+  const { data, error } = await client
+    .from('reactions')
+    .select('post_id')
+    .eq('type', type);
+  if (error) {
+    console.error(`[posts] getPostsByReaction(${type}) error:`, error);
+    return [];
+  }
+  const countMap = new Map<string, number>();
+  for (const r of (data ?? []) as { post_id: string }[]) {
+    countMap.set(r.post_id, (countMap.get(r.post_id) ?? 0) + 1);
+  }
+  return getPostsByExternalCount(client, countMap, limit, offset, q);
+}
+
+async function getPostsByComments(
+  client: SupabaseClient,
+  limit: number,
+  offset: number,
+  q?: string,
+): Promise<PostRow[]> {
+  const { data, error } = await client.from('comments').select('post_id');
+  if (error) {
+    console.error('[posts] getPostsByComments error:', error);
+    return [];
+  }
+  const countMap = new Map<string, number>();
+  for (const r of (data ?? []) as { post_id: string }[]) {
+    countMap.set(r.post_id, (countMap.get(r.post_id) ?? 0) + 1);
+  }
+  return getPostsByExternalCount(client, countMap, limit, offset, q);
+}
+
+export async function getPosts(
+  client: SupabaseClient,
+  opts: {
+    sort?: PostSort;
+    q?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<PostRow[]> {
+  const {
+    sort = 'latest',
+    q,
+    limit = POSTS_PAGE_SIZE,
+    offset = 0,
+  } = opts;
+  switch (sort) {
+    case 'latest':
+      return getPostsByLatest(client, limit, offset, q);
+    case 'views':
+      return getPostsByViews(client, limit, offset, q);
+    case 'likes':
+      return getPostsByReaction(client, 'like', limit, offset, q);
+    case 'dislikes':
+      return getPostsByReaction(client, 'dislike', limit, offset, q);
+    case 'comments':
+      return getPostsByComments(client, limit, offset, q);
+  }
 }
 
 export async function getPost(
