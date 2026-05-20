@@ -24,9 +24,24 @@ export type PostPin = {
   title: string;
 };
 
-// LAMP 가 부산 68k+ row 라 20,000 한도면 29% 만 fetch → 자치구 모드에서 16 자치구 중 일부만 표시됨.
-// 75,000 은 LAMP 풀 시드 (68,168) + 여유분. CCTV 15k / Post 는 영향 X.
-// 첫 로드 ~6MB JSON — 부담 있지만 자치구 정확 표시 우선. 추후 Supabase RPC 자치구 카운트 함수로 대체 가능.
+// RPC 클러스터 카운트 결과 (docs/schema.sql §10).
+// 자치구 모드는 좌표를 BUSAN_DISTRICT_CENTER 에서 lookup → RPC 는 district + count 만.
+export type DistrictPinCount = {
+  district: string;
+  count: number;
+};
+
+// 동 모드는 RPC 가 GROUP BY 한 평균 좌표 그대로 사용 (normalizeDong fallback 합산은 클라).
+export type DongPinCount = {
+  district: string;
+  dong: string | null;
+  count: number;
+  lat: number;
+  lng: number;
+};
+
+// 줌 <3 (개별 핀 모드) 진입 시에만 호출. 풀 시드 ~84k row → 6MB JSON.
+// LAMP 풀 시드 (68,168) + 여유. CCTV 15k / Post 는 영향 X.
 export const PINS_FETCH_LIMIT = 75000;
 
 // Supabase PostgREST 의 기본 max-rows 한도 (Dashboard 설정 무관 안전 가정).
@@ -117,4 +132,51 @@ export async function getPostPins(
     from += SUPABASE_MAX_ROWS;
   }
   return all;
+}
+
+// 자치구 단위 카운트 (RPC, docs/schema.sql §10).
+// 결과 ~16 row × 2 byte ~ 수 KB. 매 요청 풀 fetch 대신 첫 페인트 ~1~2초 보장.
+export async function getDistrictPinCounts(
+  client: SupabaseClient,
+  table: 'cctvs' | 'lamps',
+): Promise<DistrictPinCount[]> {
+  const { data, error } = await client.rpc('get_district_pin_counts', {
+    target_table: table,
+  });
+  if (error) {
+    logPinError(`district:${table}`, error);
+    return [];
+  }
+  return ((data ?? []) as { district: string; pin_count: number }[]).map((r) => ({
+    district: r.district,
+    count: Number(r.pin_count),
+  }));
+}
+
+// 동 단위 카운트 (RPC). 결과 ~150~200 row.
+// district + dong 결합 키로 클러스터링 (클라이언트 normalizeDong + fallback 합산).
+export async function getDongPinCounts(
+  client: SupabaseClient,
+  table: 'cctvs' | 'lamps',
+): Promise<DongPinCount[]> {
+  const { data, error } = await client.rpc('get_dong_pin_counts', {
+    target_table: table,
+  });
+  if (error) {
+    logPinError(`dong:${table}`, error);
+    return [];
+  }
+  return ((data ?? []) as {
+    district: string;
+    dong: string | null;
+    pin_count: number;
+    avg_lat: number;
+    avg_lng: number;
+  }[]).map((r) => ({
+    district: r.district,
+    dong: r.dong,
+    count: Number(r.pin_count),
+    lat: r.avg_lat,
+    lng: r.avg_lng,
+  }));
 }

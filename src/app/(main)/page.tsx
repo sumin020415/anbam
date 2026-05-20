@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import {
-  getCctvPins,
-  getLampPins,
+  getDistrictPinCounts,
+  getDongPinCounts,
   getPostPins,
-  type CctvPin,
-  type LampPin,
+  type DistrictPinCount,
+  type DongPinCount,
   type PostPin,
 } from '@/lib/services/pins';
 import MapHome from '@/components/map/MapHome';
@@ -32,19 +32,36 @@ export default async function HomePage({
   const showLamp = filter === 'all' || filter === 'lamp';
   const showPost = filter === 'all' || filter === 'post';
 
-  const [cctvPins, lampPins, postPins] = await Promise.all<
-    [Promise<CctvPin[]>, Promise<LampPin[]>, Promise<PostPin[]>]
+  // RPC 로 자치구 + 동 카운트만 fetch (~수 KB). 개별 핀은 MapHome 에서 lazy fetch.
+  const [
+    cctvDistrictCounts,
+    lampDistrictCounts,
+    cctvDongCounts,
+    lampDongCounts,
+    postPins,
+  ] = await Promise.all<
+    [
+      Promise<DistrictPinCount[]>,
+      Promise<DistrictPinCount[]>,
+      Promise<DongPinCount[]>,
+      Promise<DongPinCount[]>,
+      Promise<PostPin[]>,
+    ]
   >([
-    showCctv ? getCctvPins(supabase) : Promise.resolve([] as CctvPin[]),
-    showLamp ? getLampPins(supabase) : Promise.resolve([] as LampPin[]),
+    showCctv ? getDistrictPinCounts(supabase, 'cctvs') : Promise.resolve([]),
+    showLamp ? getDistrictPinCounts(supabase, 'lamps') : Promise.resolve([]),
+    showCctv ? getDongPinCounts(supabase, 'cctvs') : Promise.resolve([]),
+    showLamp ? getDongPinCounts(supabase, 'lamps') : Promise.resolve([]),
     showPost ? getPostPins(supabase) : Promise.resolve([] as PostPin[]),
   ]);
 
   return (
     <main className="flex-1">
       <MapHome
-        cctvPins={cctvPins}
-        lampPins={lampPins}
+        cctvDistrictCounts={cctvDistrictCounts}
+        lampDistrictCounts={lampDistrictCounts}
+        cctvDongCounts={cctvDongCounts}
+        lampDongCounts={lampDongCounts}
         postPins={postPins}
         searchPosition={searchPosition}
       />

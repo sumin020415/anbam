@@ -7,11 +7,20 @@ import KakaoMap, { DEFAULT_MAP_LEVEL, type KakaoMapInstance } from './KakaoMap';
 import MapPin from './MapPin';
 import ClusterPin from './ClusterPin';
 import {
-  clusterByDistrict,
-  clusterByDong,
+  clusterDistrictCounts,
+  clusterDongCounts,
   type ClusterGroup,
 } from './clusterByDistrict';
-import type { CctvPin, LampPin, PostPin } from '@/lib/services/pins';
+import {
+  getCctvPins,
+  getLampPins,
+  type CctvPin,
+  type LampPin,
+  type PostPin,
+  type DistrictPinCount,
+  type DongPinCount,
+} from '@/lib/services/pins';
+import { createClient } from '@/lib/supabase/client';
 
 // 줌 레벨 정책 (카카오맵: 숫자 ↑ = 축소, 숫자 ↓ = 확대)
 // 부산 도메인 기준:
@@ -30,15 +39,19 @@ type ActivePin =
   | { kind: 'cluster'; cluster: ClusterGroup; clusterKind: 'cctv' | 'lamp' };
 
 type Props = {
-  cctvPins: CctvPin[];
-  lampPins: LampPin[];
+  cctvDistrictCounts: DistrictPinCount[];
+  lampDistrictCounts: DistrictPinCount[];
+  cctvDongCounts: DongPinCount[];
+  lampDongCounts: DongPinCount[];
   postPins: PostPin[];
   searchPosition?: { lat: number; lng: number } | null;
 };
 
 export default function MapHome({
-  cctvPins,
-  lampPins,
+  cctvDistrictCounts,
+  lampDistrictCounts,
+  cctvDongCounts,
+  lampDongCounts,
   postPins,
   searchPosition,
 }: Props) {
@@ -51,20 +64,56 @@ export default function MapHome({
   const [activeMarkerAddress, setActiveMarkerAddress] = useState<string | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
 
+  // 개별 핀 모드 진입 시 lazy fetch — 풀 row (~84k) 첫 로드 회피.
+  // 한 번 fetch 후 캐싱 (이후 줌 인은 즉시 표시).
+  const [cctvIndividual, setCctvIndividual] = useState<CctvPin[] | null>(null);
+  const [lampIndividual, setLampIndividual] = useState<LampPin[] | null>(null);
+  const [individualLoading, setIndividualLoading] = useState(false);
+
   const cctvDistrictClusters = useMemo(
-    () => clusterByDistrict(cctvPins),
-    [cctvPins],
+    () => clusterDistrictCounts(cctvDistrictCounts),
+    [cctvDistrictCounts],
   );
   const lampDistrictClusters = useMemo(
-    () => clusterByDistrict(lampPins),
-    [lampPins],
+    () => clusterDistrictCounts(lampDistrictCounts),
+    [lampDistrictCounts],
   );
-  const cctvDongClusters = useMemo(() => clusterByDong(cctvPins), [cctvPins]);
-  const lampDongClusters = useMemo(() => clusterByDong(lampPins), [lampPins]);
+  const cctvDongClusters = useMemo(
+    () => clusterDongCounts(cctvDongCounts),
+    [cctvDongCounts],
+  );
+  const lampDongClusters = useMemo(
+    () => clusterDongCounts(lampDongCounts),
+    [lampDongCounts],
+  );
 
   const showDistrict = zoomLevel >= DISTRICT_THRESHOLD;
   const showDong = !showDistrict && zoomLevel >= DONG_THRESHOLD;
   const showIndividual = !showDistrict && !showDong;
+  // 개별 핀 모드 진입 + fetch 미완료 → 동 클러스터 transparent fallback (시각 컨텍스트 유지)
+  const showIndividualReady =
+    showIndividual && cctvIndividual !== null && lampIndividual !== null;
+  const showDongFallback = showIndividual && !showIndividualReady;
+
+  // 줌 <3 처음 진입 시 개별 핀 풀 fetch (한 번만)
+  useEffect(() => {
+    if (!showIndividual) return;
+    if (cctvIndividual !== null && lampIndividual !== null) return;
+    if (individualLoading) return;
+    setIndividualLoading(true);
+    const client = createClient();
+    Promise.all([getCctvPins(client), getLampPins(client)])
+      .then(([cctv, lamp]) => {
+        setCctvIndividual(cctv);
+        setLampIndividual(lamp);
+      })
+      .catch((e) => {
+        console.error('[MapHome] individual fetch error:', e);
+      })
+      .finally(() => {
+        setIndividualLoading(false);
+      });
+  }, [showIndividual, cctvIndividual, lampIndividual, individualLoading]);
 
   // 헤더 검색에서 좌표 query 로 진입 시 자동으로 그 위치로 이동 + 줌인 (개별 핀 모드)
   // + activeMarker 동기화
@@ -137,13 +186,19 @@ export default function MapHome({
   }, [activeMarker]);
 
   return (
-    <KakaoMap
-      onClick={handleMapClick}
-      onZoomChanged={setZoomLevel}
-      onMapCreate={(m) => {
-        mapRef.current = m;
-      }}
-    >
+    <>
+      {individualLoading && (
+        <div className="fixed right-4 top-20 z-20 rounded-anbam border border-line-1 bg-white px-3 py-2 text-xs font-bold text-ink-1 shadow-card">
+          개별 핀 불러오는 중…
+        </div>
+      )}
+      <KakaoMap
+        onClick={handleMapClick}
+        onZoomChanged={setZoomLevel}
+        onMapCreate={(m) => {
+          mapRef.current = m;
+        }}
+      >
       {showDistrict &&
         cctvDistrictClusters.map((c) => (
           <ClusterPin
@@ -155,7 +210,7 @@ export default function MapHome({
             onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'cctv' })}
           />
         ))}
-      {showDong &&
+      {(showDong || showDongFallback) &&
         cctvDongClusters.map((c) => (
           <ClusterPin
             key={`cctv-dong-${c.key}`}
@@ -166,8 +221,8 @@ export default function MapHome({
             onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'cctv' })}
           />
         ))}
-      {showIndividual &&
-        cctvPins.map((p) => (
+      {showIndividualReady &&
+        cctvIndividual!.map((p) => (
           <MapPin
             key={`cctv-${p.id}`}
             type="cctv"
@@ -187,7 +242,7 @@ export default function MapHome({
             onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'lamp' })}
           />
         ))}
-      {showDong &&
+      {(showDong || showDongFallback) &&
         lampDongClusters.map((c) => (
           <ClusterPin
             key={`lamp-dong-${c.key}`}
@@ -198,8 +253,8 @@ export default function MapHome({
             onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'lamp' })}
           />
         ))}
-      {showIndividual &&
-        lampPins.map((p) => (
+      {showIndividualReady &&
+        lampIndividual!.map((p) => (
           <MapPin
             key={`lamp-${p.id}`}
             type="lamp"
@@ -258,7 +313,8 @@ export default function MapHome({
           <PinInfoCard active={active} onClose={() => setActive(null)} />
         </MapInfoWindow>
       )}
-    </KakaoMap>
+      </KakaoMap>
+    </>
   );
 }
 

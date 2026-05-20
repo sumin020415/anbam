@@ -1,6 +1,8 @@
 // 핀 그룹핑 utility — 자치구(district) / 동(dong) 단위 2 종 제공.
 // 줌아웃 = 자치구 (~16 개), 줌 중간 = 동 (~150~200 개), 줌인 = 개별 핀.
 
+import type { DistrictPinCount, DongPinCount } from '@/lib/services/pins';
+
 export type Clusterable = {
   district: string | null;
   dong?: string | null;
@@ -170,4 +172,68 @@ export function clusterByDong<T extends Clusterable>(pins: T[]): ClusterGroup[] 
     if (!dong) return `${d} (도로명)`;
     return `${d} ${dong}`;
   });
+}
+
+// =========================================================================
+// RPC 결과용 헬퍼 (docs/schema.sql §10 — get_district_pin_counts / get_dong_pin_counts)
+// 풀 row fetch 대신 카운트만 받아 그룹핑 — 6MB → ~수 KB 다운로드 감소.
+// =========================================================================
+
+// RPC 자치구 카운트 → ClusterGroup (BUSAN_DISTRICT_CENTER 좌표 사용, 화이트리스트 필터).
+export function clusterDistrictCounts(counts: DistrictPinCount[]): ClusterGroup[] {
+  const out: ClusterGroup[] = [];
+  for (const c of counts) {
+    if (!isBusanDistrict(c.district)) continue;
+    const [lat, lng] = BUSAN_DISTRICT_CENTER[c.district];
+    out.push({ key: c.district, lat, lng, count: c.count });
+  }
+  out.sort((a, b) => b.count - a.count);
+  return out;
+}
+
+// RPC 동 카운트 → ClusterGroup.
+// normalizeDong 으로 법정동 합침 + 도로명/null fallback → 자치구별 `(기타)` / `(도로명)` 그룹.
+// 가중 평균 좌표 (count 비례) — 합산 시 정확.
+export function clusterDongCounts(counts: DongPinCount[]): ClusterGroup[] {
+  const acc = new Map<
+    string,
+    { latSum: number; lngSum: number; count: number }
+  >();
+
+  for (const c of counts) {
+    if (!isBusanDistrict(c.district)) continue;
+
+    let key: string;
+    const dongRaw = c.dong?.trim();
+    if (!dongRaw) {
+      key = `${c.district} (기타)`;
+    } else {
+      const dong = normalizeDong(dongRaw);
+      key = dong ? `${c.district} ${dong}` : `${c.district} (도로명)`;
+    }
+
+    const cur = acc.get(key);
+    if (cur) {
+      cur.latSum += c.lat * c.count;
+      cur.lngSum += c.lng * c.count;
+      cur.count += c.count;
+    } else {
+      acc.set(key, {
+        latSum: c.lat * c.count,
+        lngSum: c.lng * c.count,
+        count: c.count,
+      });
+    }
+  }
+
+  const out: ClusterGroup[] = [];
+  for (const [key, v] of acc) {
+    out.push({
+      key,
+      lat: v.latSum / v.count,
+      lng: v.lngSum / v.count,
+      count: v.count,
+    });
+  }
+  return out;
 }

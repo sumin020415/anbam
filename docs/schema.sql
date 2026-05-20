@@ -342,6 +342,85 @@ grant usage, select on all sequences in schema public to service_role;
 
 
 -- ============================================================
+-- 10. RPC 함수 (PostgREST 노출) — 클러스터 카운트
+-- ============================================================
+-- 메인 지도 페이지가 cctvs/lamps 풀 row (~84,000) 를 매번 fetch 하면 6MB JSON →
+-- 모바일 첫 페인트 10~30초. RPC 로 자치구/동 단위 GROUP BY COUNT 만 반환 → ~2KB.
+--
+-- 클라이언트 측에서:
+--   - 자치구 모드 (줌 6+): get_district_pin_counts → 16 row → BUSAN_DISTRICT_CENTER 좌표 lookup
+--   - 동 모드 (줌 3~5): get_dong_pin_counts → ~200 row → normalizeDong 정규화 + 합산
+--   - 개별 핀 모드 (줌 <3): 기존 getCctvPins / getLampPins (클라 lazy fetch)
+
+-- 자치구 단위 핀 카운트 (16 row 반환)
+-- target_table 인자로 cctvs / lamps 동적 선택 (format %I 로 SQL injection 안전)
+create or replace function public.get_district_pin_counts(target_table text)
+returns table(district text, pin_count bigint)
+language plpgsql
+stable
+security invoker
+set search_path = public, pg_temp
+as $$
+begin
+  -- 화이트리스트 — cctvs / lamps 만 허용 (그 외 테이블 호출 차단)
+  if target_table not in ('cctvs', 'lamps') then
+    raise exception 'invalid target_table: %', target_table
+      using errcode = '22023';
+  end if;
+
+  return query execute format(
+    'select district, count(*)::bigint as pin_count
+       from %I
+      where lat is not null
+        and lng is not null
+        and district is not null
+      group by district',
+    target_table
+  );
+end;
+$$;
+
+-- 동 단위 핀 카운트 + 평균 좌표 (~200 row 반환)
+-- avg_lat/avg_lng 는 fallback (BUSAN_DISTRICT_CENTER 에 없는 동·도로명 fallback 그룹 대비)
+create or replace function public.get_dong_pin_counts(target_table text)
+returns table(
+  district text,
+  dong text,
+  pin_count bigint,
+  avg_lat double precision,
+  avg_lng double precision
+)
+language plpgsql
+stable
+security invoker
+set search_path = public, pg_temp
+as $$
+begin
+  if target_table not in ('cctvs', 'lamps') then
+    raise exception 'invalid target_table: %', target_table
+      using errcode = '22023';
+  end if;
+
+  return query execute format(
+    'select district, dong, count(*)::bigint as pin_count,
+            avg(lat)::double precision as avg_lat,
+            avg(lng)::double precision as avg_lng
+       from %I
+      where lat is not null
+        and lng is not null
+        and district is not null
+      group by district, dong',
+    target_table
+  );
+end;
+$$;
+
+-- Data API 노출 — anon/authenticated 모두 execute (cctvs/lamps SELECT 권한과 동일)
+grant execute on function public.get_district_pin_counts(text) to anon, authenticated;
+grant execute on function public.get_dong_pin_counts(text) to anon, authenticated;
+
+
+-- ============================================================
 -- 완료
 -- ============================================================
 -- 검증 쿼리:
@@ -360,3 +439,9 @@ grant usage, select on all sequences in schema public to service_role;
 --      and grantee in ('anon', 'authenticated', 'service_role')
 --    order by table_name, grantee, privilege_type;
 --   → 각 role 의 테이블별 권한 확인 (Data API 노출 정책 대비)
+--
+--   select proname from pg_proc where pronamespace = 'public'::regnamespace order by proname;
+--   → get_district_pin_counts / get_dong_pin_counts / handle_new_user
+--
+--   select * from public.get_district_pin_counts('cctvs');
+--   → 16 row 자치구별 카운트 (시드된 row 수에 따라 다름)
