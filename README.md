@@ -37,8 +37,12 @@
 | 🔄 비밀번호 재설정 (이메일 링크 + PKCE 콜백) | ✅ |
 | 🇰🇷 로그인 실패 메시지 한국어 매핑 | ✅ |
 | 📝 시민 제보 게시글 CRUD (목록/상세/작성/수정/삭제) | ✅ |
-| 📃 게시글 페이지네이션 ("더 보기" 방식) | ✅ |
-| 💬 댓글 + 대댓글 (계층 트리, depth 0~2 들여쓰기) | ✅ |
+| 🎴 velog 스타일 카드 (16:9 thumbnail + placeholder 3단 [이미지→지도→로고] + 메타 4종 조회/👍/👎/💬 + hover lift + grid 1/2/3) | ✅ |
+| 🗂 5종 정렬 탭 (최신/좋아요/싫어요/조회/댓글, `useTransition` pending opacity + `?sort=X` URL query) | ✅ |
+| 🔎 게시글 검색 (제목·본문 ilike, `?q=X` query, 검색어 ✕ 지우기 + 브라우저 기본 ✕ 제거, `escapeIlikeTerm` 와일드카드 이스케이프) | ✅ |
+| 📍 상세 위치 지도 (`PostLocation` — 본문 아래 주소 + h-56 KakaoMap, 작성/수정/상세 너비·뒤로가기 통일) | ✅ |
+| 📃 게시글 페이지네이션 ("더 보기" 방식, `<key={sort\|q}>` SSR initial reset) | ✅ |
+| 💬 댓글 + 대댓글 (계층 트리, depth 0~2 들여쓰기, 카드 메타에 댓글 수 `💬 N` 표시) | ✅ |
 | 👍👎 좋아요 / 싫어요 (복합 PK upsert, 토글/전환) | ✅ |
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 (종류별 색 + InfoWindow) | ✅ |
 | 🗂 3 단 줌 클러스터링 (줌 ≥ 6 = 자치구 16개 / 3~5 = 동 ~150~200개 / < 3 = 개별 핀) | ✅ |
@@ -200,7 +204,7 @@ src/
 │   └── api/auth/check-email/         # 이메일 중복확인 (service_role)
 ├── components/
 │   ├── analysis/                     # BusanSvg (수동 변환, 16 path id 보존, controlled props) / BusanMap (getBBox 라벨 + 위험·안전 범례 + mx-auto lg:mx-0) / DistrictBarChart (Tab 1 제보 수) / InfraStackedBar (Tab 2 CCTV+LAMP 누적) / PerCapitaPanel (사이드 — 인구·밀도·1대당·안전 점수) / TrendLineChart (Tab 3 일별/시간대 Line) / AnalysisTabs (orchestration — lg:items-center + 3 Tab + AnimatePresence)
-│   ├── post/                         # PostCard (이미지 thumbnail) / PostList / PostForm (위치 picker + 이미지 업로드 + `?lat&lng` query 마운트 자동 reverseGeocode) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
+│   ├── post/                         # PostCard (velog 16:9 thumbnail + placeholder 3단 [이미지→지도→로고] + 메타 4종 조회/👍/👎/💬 + h-full + hover lift) / PostList (grid 1/2/3 cols + key reset) / PostTabs (5종 정렬 segmented + useTransition pending) / SearchBox (제목·본문 ilike + ?q query + 브라우저 기본 ✕ 제거) / PostForm (위치 picker + 이미지 업로드 + `?lat&lng` query 마운트 자동 reverseGeocode) / PostLocation (상세 본문 아래 위치 지도 h-56) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
 │   ├── map/                          # KakaoMap (래퍼, onMapCreate) / MapHome (메인 홈 + 3단 줌 분기 자치구·동·개별 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구·동 클러스터, count, sizeOf 36~48px, CustomOverlayMap zIndex) / clusterByDistrict (BUSAN_DISTRICTS 16 화이트리스트 + BUSAN_DISTRICT_CENTER 시내 5 자치구 분산 좌표 + clusterByDistrict + clusterByDong + normalizeDong 5 단계 정규화: 비정상값 skip → 도로명 skip → 도로명+번지 skip → 첫 (동|읍|면) lazy 추출 → 행정→법정)
 │   ├── auth/LogoutButton.tsx
@@ -210,7 +214,7 @@ src/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
 │   ├── utils/                        # server-safe utility (server/client 양쪽 import 가능) — pinFilter (타입/가드/OPTIONS)
-│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts/comments/reactions/pins[1000-row range pagination, PINS_FETCH_LIMIT=75000 — LAMP 68k 전체 fetch]/storage/analytics[자치구 카운트 N 병렬 + KST 시계열])
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts[getPosts 통합 — 5종 sort latest·likes·dislikes·views·comments + 검색 ilike + escapeIlikeTerm + comments(count) join + reactions 별도 fetch + DB 정렬 가능/불가능 분기]/comments/reactions/pins[1000-row range pagination, PINS_FETCH_LIMIT=75000 — LAMP 68k 전체 fetch]/storage/analytics[자치구 카운트 N 병렬 + KST 시계열])
 ├── data/                             # 정적 데이터 — busanStatic.ts (헬퍼) + gu_name + population + population_density JSON (분석 페이지)
 └── proxy.ts                          # 세션 자동 갱신 (Next.js 16, `export async function proxy(req)` + matcher config)
 
@@ -287,7 +291,8 @@ public/
 | ✨ UX 보강 | 케밥 메뉴 / 스크롤 탑 / Floating 작성 | ✅ |
 | 🔁 CCTV 부분 재시드 CLI | `--pages=N` / `--append` / `--retry-from=*.json` + unique constraint → CCTV ~15,000 row 도달 | ⏳ |
 | 📊 분석 페이지 (`/analysis`) | 부산 SVG 자치구 클릭 (16 path id 보존, 수동 변환) + 사이드 패널 (인구·밀도·CCTV/LAMP 1대당·안전 점수) + 3 Tab Chart.js (제보 수 / CCTV+LAMP 누적 / KST 일별·시간대 Line) + framer-motion 펼침/접힘 + Header 분석 메뉴 활성화 + `shrink-0` (긴 본문 페이지 헤더 압축 방지) | ✅ |
-| 🗨 게시글 카드 댓글 수 + 인기 게시글 사이드바 (좋아요 상위 5) | 원본 nightsafe parity 마지막 | ⏳ |
+| 🎴 velog 스타일 게시판 리뉴얼 | 5종 정렬 (`PostTabs`) + 검색 (`SearchBox`, ilike + ?q) + velog 카드 (16:9 + placeholder 3단 + 메타 4종) + 상세 위치 지도 (`PostLocation`) + 작성/수정/상세 너비·뒤로가기 통일. `getPosts` 통합 services (DB 정렬 가능/불가능 분기). 카드 댓글 수 `💬 N` 포함 | ✅ |
+| 🗨 인기 게시글 사이드바 (좋아요 상위 5) | 원본 nightsafe parity 마지막 — **의도적 제외** (velog 스타일 단일 컬럼 채택, "좋아요순" 정렬 탭이 대체 역할) | ⏸️ 제외 |
 | 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본) + 포트폴리오 사이트 카드 추가 | ⏳ |
 
 ### 중기 (실사용 가능한 사이트로 확장)
