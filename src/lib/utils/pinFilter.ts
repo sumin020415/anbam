@@ -1,4 +1,4 @@
-// 지도 핀 필터 타입 + 가드 — server / client 양쪽에서 import 가능하도록 분리.
+// 지도 핀 필터 타입 + 가드 - server / client 양쪽에서 import 가능하도록 분리.
 // `'use client'` 모듈 안에 두면 서버 컴포넌트에서 호출 시
 // "Attempted to call X() from the server" 에러 발생 (CLAUDE.md §9 'use client' 경계).
 

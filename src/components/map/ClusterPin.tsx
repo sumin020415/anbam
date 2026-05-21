@@ -37,7 +37,7 @@ export default function ClusterPin({ kind, position, count, label, onClick }: Pr
   const { px, fontPx } = sizeOf(count);
 
   // CustomOverlayMap 은 카카오맵 내부에 마운트되어 React DOM 순서가 z-index 에 영향 X.
-  // SDK 의 zIndex prop 명시 — count 작을수록 위로 (작은 자치구가 큰 자치구에 안 가림).
+  // SDK 의 zIndex prop 명시 - count 작을수록 위로 (작은 자치구가 큰 자치구에 안 가림).
   // 부산 시내 자치구끼리 좌표 거리 < 클러스터 지름 한계의 보조 안전망.
   return (
     <CustomOverlayMap

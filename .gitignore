@@ -59,7 +59,7 @@ desktop.ini
 *.log
 *.tmp
 
-# Seed scripts — skip 페이지 추적 파일 (커밋 X, 로컬 사용)
+# Seed scripts - skip 페이지 추적 파일 (커밋 X, 로컬 사용)
 seed-skipped-*.json
-# Fix scripts — district/dong 보정 결과 로그 (커밋 X, 로컬 사용)
+# Fix scripts - district/dong 보정 결과 로그 (커밋 X, 로컬 사용)
 fix-*-district-*.json

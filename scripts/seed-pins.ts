@@ -10,8 +10,8 @@
 // 환경변수 (.env.local):
 //   NEXT_PUBLIC_SUPABASE_URL
 //   SUPABASE_SERVICE_ROLE_KEY
-//   KOREA_DATA_API_KEY        (CCTV — data.go.kr, Decoding 키)
-//   SAFETYDATA_API_KEY        (보안등 — safetydata.go.kr)
+//   KOREA_DATA_API_KEY        (CCTV - data.go.kr, Decoding 키)
+//   SAFETYDATA_API_KEY        (보안등 - safetydata.go.kr)
 
 import { config as loadEnv } from 'dotenv';
 import path from 'node:path';
@@ -70,7 +70,7 @@ const admin: SupabaseClient = createClient(SUPA_URL, SUPA_KEY, {
 });
 
 // ============================================================
-// HTTP 유틸 — 재시도 + 일반 브라우저 헤더 (한국 정부 API 호환성)
+// HTTP 유틸 - 재시도 + 일반 브라우저 헤더 (한국 정부 API 호환성)
 // ============================================================
 const FETCH_HEADERS = {
   'User-Agent':
@@ -80,7 +80,7 @@ const FETCH_HEADERS = {
 };
 
 // ============================================================
-// Skip 페이지 로그 저장 — 부분 재시드를 위한 추적 파일
+// Skip 페이지 로그 저장 - 부분 재시드를 위한 추적 파일
 // ============================================================
 type StopReason = 'completed' | 'empty_response' | 'consecutive_failures' | 'max_pages';
 
@@ -105,7 +105,7 @@ function saveSkipLog(log: SkipLog): void {
   }
   if (log.missedRange) {
     console.log(
-      `[${log.target}] ⚠️  한도 초과 종료 — 미시드 페이지 ${log.missedRange[0]}~${log.missedRange[1]}`,
+      `[${log.target}] ⚠️  한도 초과 종료 - 미시드 페이지 ${log.missedRange[0]}~${log.missedRange[1]}`,
     );
   }
   // skip 도 미시드 범위도 없으면 파일 안 만듬 (완전 성공)
@@ -146,7 +146,7 @@ async function fetchWithRetry(
 }
 
 // ============================================================
-// CCTV — data.go.kr 행정안전부_CCTV정보 조회서비스
+// CCTV - data.go.kr 행정안전부_CCTV정보 조회서비스
 // ============================================================
 const CCTV_API = 'https://apis.data.go.kr/1741000/cctv_info/info';
 // 행정안전부 CCTV API 는 numOfRows 최대값이 100 (요청해도 100 으로 잘림)
@@ -195,7 +195,7 @@ function mapCctv(row: CctvApiRow): CctvSeedRow | null {
   const lotno = (row.LCTN_LOTNO_ADDR ?? '').trim();
   const road = (row.LCTN_ROAD_NM_ADDR ?? '').trim();
 
-  // 부산 필터 — 지번 또는 도로명 어느 한쪽이라도 "부산광역시" 로 시작하면 OK
+  // 부산 필터 - 지번 또는 도로명 어느 한쪽이라도 "부산광역시" 로 시작하면 OK
   const useAddr = lotno.startsWith('부산광역시')
     ? lotno
     : road.startsWith('부산광역시')
@@ -206,7 +206,7 @@ function mapCctv(row: CctvApiRow): CctvSeedRow | null {
   const parts = useAddr.split(/\s+/);
   const district = parts[1]; // 예: "해운대구"
   const dong = parts[2]; // 예: "우동"
-  // cctvs.district / cctvs.dong 는 NOT NULL — 자치구/동 추출 실패 시 row skip
+  // cctvs.district / cctvs.dong 는 NOT NULL - 자치구/동 추출 실패 시 row skip
   if (!district || !dong) return null;
 
   const lat = parseFloat(row.WGS84_LAT ?? '');
@@ -350,7 +350,7 @@ async function seedCctv() {
 }
 
 // ============================================================
-// Lamp — data.go.kr 전국보안등정보표준데이터
+// Lamp - data.go.kr 전국보안등정보표준데이터
 // endpoint: https://api.data.go.kr/openapi/tn_pubr_public_scrty_lmp_api
 // 응답: response.body.items[]  (좌표 WGS84, 주소 텍스트로 부산 필터)
 // ============================================================
@@ -406,7 +406,7 @@ function isBusanAddr(addr: string): boolean {
 }
 
 function mapLamp(row: LampApiRow): LampSeedRow | null {
-  // 부산 필터 — 도로명/지번 어느 한쪽이라도 부산이면 OK
+  // 부산 필터 - 도로명/지번 어느 한쪽이라도 부산이면 OK
   const rdnm = (row.rdnmadr ?? '').trim();
   const lnm = (row.lnmadr ?? '').trim();
   const useAddr = isBusanAddr(rdnm) ? rdnm : isBusanAddr(lnm) ? lnm : null;
@@ -415,7 +415,7 @@ function mapLamp(row: LampApiRow): LampSeedRow | null {
   const parts = useAddr.split(/\s+/);
   const district = parts[1]; // 예: "해운대구"
   const dong = parts[2];
-  // lamps.district / lamps.dong 도 NOT NULL — 추출 실패 시 row skip
+  // lamps.district / lamps.dong 도 NOT NULL - 추출 실패 시 row skip
   if (!district || !dong) return null;
 
   const lat = parseFloat(row.latitude ?? '');

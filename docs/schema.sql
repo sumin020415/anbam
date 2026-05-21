@@ -1,5 +1,5 @@
 -- ============================================================
--- 안밤 (ANBAM) — Supabase 통합 스키마
+-- 안밤 (ANBAM) - Supabase 통합 스키마
 -- ============================================================
 -- 적용 방법:
 --   1) Supabase Dashboard → SQL Editor 에서 새 쿼리 생성
@@ -97,7 +97,7 @@ create table if not exists public.posts (
   created_at  timestamptz not null default now()
 );
 
--- FK 이름을 명시적으로 지정 (PostgREST 임베드 모호성 회피 — services 의 select 가
+-- FK 이름을 명시적으로 지정 (PostgREST 임베드 모호성 회피 - services 의 select 가
 -- "profiles!posts_author_id_fkey(nickname)" 패턴 사용).
 -- → "create table" 의 references 가 자동으로 "posts_author_id_fkey" 이름을 만듬.
 --   만약 다른 이름이면 아래 명령으로 rename:
@@ -171,7 +171,7 @@ create policy "comments_delete_self"
 -- ============================================================
 -- 5. reactions (좋아요/싫어요)
 -- ============================================================
--- (post_id, user_id) 복합 PK — 사용자당 게시글 1개 반응만.
+-- (post_id, user_id) 복합 PK - 사용자당 게시글 1개 반응만.
 -- type 전환은 services 에서 upsert(onConflict='post_id,user_id') 로 처리.
 create table if not exists public.reactions (
   post_id    uuid not null references public.posts(id) on delete cascade,
@@ -258,7 +258,7 @@ create policy "lamps_select_all"
 
 
 -- ============================================================
--- 8. Storage — post-images 버킷 정책
+-- 8. Storage - post-images 버킷 정책
 -- ============================================================
 -- ⚠️ 버킷은 Dashboard → Storage 에서 미리 생성:
 --   - Name: post-images
@@ -293,7 +293,7 @@ create policy "post_images_select_all"
 
 
 -- ============================================================
--- 9. Default privileges (GRANT) — Data API 접근 권한
+-- 9. Default privileges (GRANT) - Data API 접근 권한
 -- ============================================================
 -- Supabase 2026-05-30 신규 / 2026-10-30 전체 enforced 정책 대비.
 -- public 스키마의 테이블이 Data API (supabase-js/PostgREST/GraphQL) 에 노출되려면
@@ -328,7 +328,7 @@ grant select on public.reactions to anon, authenticated;
 grant insert, update, delete on public.reactions to authenticated;
 grant all on public.reactions to service_role;
 
--- cctvs (읽기 전용 공공데이터, 쓰기는 service_role 만 — RLS + GRANT 이중 통제)
+-- cctvs (읽기 전용 공공데이터, 쓰기는 service_role 만 - RLS + GRANT 이중 통제)
 grant select on public.cctvs to anon, authenticated;
 grant all on public.cctvs to service_role;
 
@@ -336,13 +336,13 @@ grant all on public.cctvs to service_role;
 grant select on public.lamps to anon, authenticated;
 grant all on public.lamps to service_role;
 
--- bigserial 시퀀스 (cctvs / lamps) — service_role 이 nextval 호출 가능하도록.
+-- bigserial 시퀀스 (cctvs / lamps) - service_role 이 nextval 호출 가능하도록.
 -- (Supabase 의 service_role 은 기본적으로 권한이 넓지만, 신규 정책 대비 명시.)
 grant usage, select on all sequences in schema public to service_role;
 
 
 -- ============================================================
--- 10. RPC 함수 (PostgREST 노출) — 클러스터 카운트
+-- 10. RPC 함수 (PostgREST 노출) - 클러스터 카운트
 -- ============================================================
 -- 메인 지도 페이지가 cctvs/lamps 풀 row (~84,000) 를 매번 fetch 하면 6MB JSON →
 -- 모바일 첫 페인트 10~30초. RPC 로 자치구/동 단위 GROUP BY COUNT 만 반환 → ~2KB.
@@ -362,7 +362,7 @@ security invoker
 set search_path = public, pg_temp
 as $$
 begin
-  -- 화이트리스트 — cctvs / lamps 만 허용 (그 외 테이블 호출 차단)
+  -- 화이트리스트 - cctvs / lamps 만 허용 (그 외 테이블 호출 차단)
   if target_table not in ('cctvs', 'lamps') then
     raise exception 'invalid target_table: %', target_table
       using errcode = '22023';
@@ -415,7 +415,7 @@ begin
 end;
 $$;
 
--- Data API 노출 — anon/authenticated 모두 execute (cctvs/lamps SELECT 권한과 동일)
+-- Data API 노출 - anon/authenticated 모두 execute (cctvs/lamps SELECT 권한과 동일)
 grant execute on function public.get_district_pin_counts(text) to anon, authenticated;
 grant execute on function public.get_dong_pin_counts(text) to anon, authenticated;
 

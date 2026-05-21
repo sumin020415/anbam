@@ -2,8 +2,8 @@
 // LAMP 의 dong 자리에 도로명 단편이 들어간 row + district 가 부산 16 자치구 화이트리스트
 // 미통과 row 를 Kakao Local REST API (coord2regioncode) 로 좌표 → 행정구역 변환해 보정한다.
 //
-// 사전 — `.env.local` 에 `KAKAO_REST_API_KEY` 등록 필요
-//   (Kakao Developers > 내 애플리케이션 > 앱 키 > REST API 키 — JavaScript 키와 다른 키)
+// 사전 - `.env.local` 에 `KAKAO_REST_API_KEY` 등록 필요
+//   (Kakao Developers > 내 애플리케이션 > 앱 키 > REST API 키 - JavaScript 키와 다른 키)
 //
 // 실행:
 //   npm run fix-lamp-district -- --dry-run
@@ -63,7 +63,7 @@ const admin: SupabaseClient = createClient(SUPA_URL, SUPA_KEY, {
 });
 
 // Kakao Local API rate limit (무료: 일 100,000 호출, 초당 ~10).
-// 안전하게 100ms 간격 (초당 10) — LAMP 35k row × 100ms ≈ 58 분.
+// 안전하게 100ms 간격 (초당 10) - LAMP 35k row × 100ms ≈ 58 분.
 const RATE_LIMIT_MS = 100;
 const RETRY = 3;
 // 진행 로그 간격 (LAMP 는 row 수가 커서 50 → 500 으로 늘림)
@@ -147,7 +147,7 @@ async function fetchBrokenRows(): Promise<BrokenRow[]> {
     from += pageSize;
   }
 
-  // (2) dong 도로명 단편 — PostgREST or chain
+  // (2) dong 도로명 단편 - PostgREST or chain
   from = 0;
   while (true) {
     const { data, error } = await admin

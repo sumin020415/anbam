@@ -64,7 +64,7 @@ export default function MapHome({
   const [activeMarkerAddress, setActiveMarkerAddress] = useState<string | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
 
-  // 개별 핀 모드 진입 시 lazy fetch — 풀 row (~84k) 첫 로드 회피.
+  // 개별 핀 모드 진입 시 lazy fetch - 풀 row (~84k) 첫 로드 회피.
   // 한 번 fetch 후 캐싱 (이후 줌 인은 즉시 표시).
   const [cctvIndividual, setCctvIndividual] = useState<CctvPin[] | null>(null);
   const [lampIndividual, setLampIndividual] = useState<LampPin[] | null>(null);
@@ -138,7 +138,7 @@ export default function MapHome({
     setActive(null);
   };
 
-  // 파란 마커 좌표 → 주소 (도로명 우선, 없으면 지번) — Phase 5 위치 picker 와 동일 패턴
+  // 파란 마커 좌표 → 주소 (도로명 우선, 없으면 지번) - Phase 5 위치 picker 와 동일 패턴
   useEffect(() => {
     if (!activeMarker) {
       setActiveMarkerAddress(null);
@@ -263,7 +263,7 @@ export default function MapHome({
           />
         ))}
 
-      {/* 제보는 줌 레벨 무관 항상 개별 — 수가 적고 InfoWindow 가 핵심 UX */}
+      {/* 제보는 줌 레벨 무관 항상 개별 - 수가 적고 InfoWindow 가 핵심 UX */}
       {postPins.map((p) => (
         <MapPin
           key={`post-${p.id}`}
@@ -273,7 +273,7 @@ export default function MapHome({
         />
       ))}
 
-      {/* 검색 결과 + 지도 클릭 위치 — Kakao SDK 기본 파란 마커 + 주소 카드 (CustomOverlayMap, zIndex 로 핀 위) */}
+      {/* 검색 결과 + 지도 클릭 위치 - Kakao SDK 기본 파란 마커 + 주소 카드 (CustomOverlayMap, zIndex 로 핀 위) */}
       {activeMarker && (
         <>
           <MapMarker position={activeMarker} />

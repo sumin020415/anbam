@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* 컬러 — 원본 안밤 nightsafe/App.css */
+  /* 컬러 - 원본 안밤 nightsafe/App.css */
   --color-ink-1: #333d4b;
   --color-ink-2: #6b7684;
   --color-line-1: #e5e8eb;
@@ -10,7 +10,7 @@
   --color-ok: #b6f500;
   --color-warn: #c5172e;
 
-  /* 폰트 — layout.tsx 의 next/font 와 연결 */
+  /* 폰트 - layout.tsx 의 next/font 와 연결 */
   --font-sans: var(--font-noto-sans-kr);
 
   /* borderRadius */

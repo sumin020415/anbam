@@ -1,4 +1,4 @@
-// 서버 전용 — service_role 키 사용. 절대 클라이언트 번들에 포함하지 말 것.
+// 서버 전용 - service_role 키 사용. 절대 클라이언트 번들에 포함하지 말 것.
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 

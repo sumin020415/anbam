@@ -2,8 +2,8 @@
 // CCTV 의 district 가 부산 16 자치구 화이트리스트에 없는 row 를
 // Kakao Local REST API (coord2regioncode) 로 좌표 → 행정구역 변환해 보정한다.
 //
-// 사전 — `.env.local` 에 `KAKAO_REST_API_KEY` 등록 필요
-//   (Kakao Developers > 내 애플리케이션 > 앱 키 > REST API 키 — JavaScript 키와 다른 키)
+// 사전 - `.env.local` 에 `KAKAO_REST_API_KEY` 등록 필요
+//   (Kakao Developers > 내 애플리케이션 > 앱 키 > REST API 키 - JavaScript 키와 다른 키)
 //
 // 실행:
 //   npm run fix-cctv-district -- --dry-run
@@ -63,7 +63,7 @@ const admin: SupabaseClient = createClient(SUPA_URL, SUPA_KEY, {
 });
 
 // Kakao Local API rate limit (무료: 일 100,000 호출, 초당 ~10).
-// 안전하게 100ms 간격 (초당 10) — 784 row × 100ms ≈ 78 초.
+// 안전하게 100ms 간격 (초당 10) - 784 row × 100ms ≈ 78 초.
 const RATE_LIMIT_MS = 100;
 const RETRY = 3;
 
@@ -146,7 +146,7 @@ async function fetchBrokenRows(): Promise<BrokenRow[]> {
     from += pageSize;
   }
 
-  // (2) dong 도로명 단편 — PostgREST or chain
+  // (2) dong 도로명 단편 - PostgREST or chain
   from = 0;
   while (true) {
     const { data, error } = await admin
@@ -227,7 +227,7 @@ async function main() {
         doc.region_1depth_name !== '부산광역시' ||
         !BUSAN_DISTRICTS.has(doc.region_2depth_name)
       ) {
-        // 좌표가 실제로 부산 밖 (양산/김해/거제 등) — 데이터 자체가 부산 외 row
+        // 좌표가 실제로 부산 밖 (양산/김해/거제 등) - 데이터 자체가 부산 외 row
         results.push({
           id: r.id,
           oldDistrict: r.district,
@@ -277,7 +277,7 @@ async function main() {
       console.warn(`[fix-cctv] id=${r.id} 실패: ${(err as Error).message}`);
     }
 
-    // 진행 로그 — row 수에 따라 동적 간격 (1000 미만이면 50, 그 이상이면 500)
+    // 진행 로그 - row 수에 따라 동적 간격 (1000 미만이면 50, 그 이상이면 500)
     const logInterval = rows.length < 1000 ? 50 : 500;
     if ((i + 1) % logInterval === 0 || i === rows.length - 1) {
       console.log(

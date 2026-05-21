@@ -6,7 +6,7 @@ import { Map, useKakaoLoader } from 'react-kakao-maps-sdk';
 export const BUSAN_CENTER = { lat: 35.1796, lng: 129.0756 };
 export const DEFAULT_MAP_LEVEL = 6;
 
-// Kakao Map 인스턴스 타입 — services 가 setLevel/panTo 등 imperative API 제공
+// Kakao Map 인스턴스 타입 - services 가 setLevel/panTo 등 imperative API 제공
 export type KakaoMapInstance = {
   setLevel: (level: number) => void;
   panTo: (latlng: unknown) => void;

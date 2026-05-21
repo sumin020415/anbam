@@ -1,4 +1,4 @@
-// 핀 그룹핑 utility — 자치구(district) / 동(dong) 단위 2 종 제공.
+// 핀 그룹핑 utility - 자치구(district) / 동(dong) 단위 2 종 제공.
 // 줌아웃 = 자치구 (~16 개), 줌 중간 = 동 (~150~200 개), 줌인 = 개별 핀.
 
 import type { DistrictPinCount, DongPinCount } from '@/lib/services/pins';
@@ -63,24 +63,24 @@ const BUSAN_DISTRICT_CENTER: Record<string, [number, number]> = {
 
 // 도로명 접미사 (시드 매핑이 도로명을 dong 자리에 넣은 경우 skip).
 const ROAD_SUFFIXES = ['로', '길', '대로', '거리', '번길'];
-// 도로명 + 번지/호수 결합 패턴 — "용소로52-2", "수영성로26번길12", "동명로105번길27".
+// 도로명 + 번지/호수 결합 패턴 - "용소로52-2", "수영성로26번길12", "동명로105번길27".
 // `endsWith` 만으론 못 잡힘 (끝이 숫자/하이픈).
 const ROAD_WITH_NUMBER_RE =
   /(로|길|대로|거리|번길)\s*\d+(번길)?(\s*\d+)?(-\d+)?$/;
 
-// 비정상 placeholder 값 — DB 의 dong 자리에 들어가는 의미없는 값들.
+// 비정상 placeholder 값 - DB 의 dong 자리에 들어가는 의미없는 값들.
 const INVALID_DONG_VALUES = new Set(['-', '도로명주소', '주소', '미상', 'N/A']);
 
 // dong 정규화 5 단계:
-//   1. 비정상 placeholder skip — "-" / "도로명주소" 등 → null
-//   2. 도로명 단독 skip — "민락수변로" / "수영성로26번길" → null
-//   3. 도로명+번지 결합 skip — "용소로52-2" / "동명로105번길27" → null
-//   4. 첫 "동/읍/면" 까지 추출 (lazy) — trailing 모든 형식 제거:
+//   1. 비정상 placeholder skip - "-" / "도로명주소" 등 → null
+//   2. 도로명 단독 skip - "민락수변로" / "수영성로26번길" → null
+//   3. 도로명+번지 결합 skip - "용소로52-2" / "동명로105번길27" → null
+//   4. 첫 "동/읍/면" 까지 추출 (lazy) - trailing 모든 형식 제거:
 //      - 동: "청산동6" → "청산동", "남포동6번지" → "남포동", "봉래동1가" → "봉래동",
 //             "망미동212-9" → "망미동", "광복동A호" → "광복동"
 //      - 읍/면 (기장군 전체): "기장읍" → "기장읍", "철마면" → "철마면"
 //      - "동래동" 같이 "동" 두 번: lazy 라 첫 매칭 "동래동" (래 + 동) 유지
-//   5. 행정동 → 법정동 — "남천1동" / "광안제2동" → "남천동" / "광안동"
+//   5. 행정동 → 법정동 - "남천1동" / "광안제2동" → "남천동" / "광안동"
 // null 반환 시 호출자가 `${district} (기타)` 또는 `(도로명)` fallback 그룹.
 export function normalizeDong(raw: string): string | null {
   const trimmed = raw.trim();
@@ -140,7 +140,7 @@ function clusterByKey<T extends Clusterable>(
 // row 평균 좌표 대신 `BUSAN_DISTRICT_CENTER` 사용 → 자치구별 클러스터가 항상 일정 위치에 표시되어
 // 부산 시내 자치구끼리 (중구/동구/서구/부산진구 등) 평균 좌표가 가깝게 모여 큰 클러스터가
 // 작은 클러스터를 시각적으로 가리는 함정 방지.
-// 결과는 count 내림차순 정렬 — 작은 카운트가 React render 순서 뒤로 가 DOM 뒤에 오면
+// 결과는 count 내림차순 정렬 - 작은 카운트가 React render 순서 뒤로 가 DOM 뒤에 오면
 // 같은 위치/근접 위치에서 작은 클러스터가 z-index 자연스럽게 위로 와 가려지지 않음.
 export function clusterByDistrict<T extends Clusterable>(pins: T[]): ClusterGroup[] {
   const counts = new Map<string, number>();
@@ -160,7 +160,7 @@ export function clusterByDistrict<T extends Clusterable>(pins: T[]): ClusterGrou
 
 // 자치구 + 동 결합 키 (예: "해운대구 우동"). 도로명/dong-null row 도 자치구별 그룹으로 합류.
 // dong 은 `normalizeDong` 으로 법정동 기준 합침 (남천1동/남천2동 → 남천동, 망미동212-9 → 망미동).
-// CCTV 25.5% / LAMP 도 비슷한 비율이 도로명만 가지는 row — 시드가 `LCTN_LOTNO_ADDR` 부재 시
+// CCTV 25.5% / LAMP 도 비슷한 비율이 도로명만 가지는 row - 시드가 `LCTN_LOTNO_ADDR` 부재 시
 // `LCTN_ROAD_NM_ADDR` fallback 한 결과. skip 하지 말고 자치구 단독 그룹으로 합류해 데이터 보존.
 export function clusterByDong<T extends Clusterable>(pins: T[]): ClusterGroup[] {
   return clusterByKey(pins, (p) => {
@@ -175,8 +175,8 @@ export function clusterByDong<T extends Clusterable>(pins: T[]): ClusterGroup[] 
 }
 
 // =========================================================================
-// RPC 결과용 헬퍼 (docs/schema.sql §10 — get_district_pin_counts / get_dong_pin_counts)
-// 풀 row fetch 대신 카운트만 받아 그룹핑 — 6MB → ~수 KB 다운로드 감소.
+// RPC 결과용 헬퍼 (docs/schema.sql §10 - get_district_pin_counts / get_dong_pin_counts)
+// 풀 row fetch 대신 카운트만 받아 그룹핑 - 6MB → ~수 KB 다운로드 감소.
 // =========================================================================
 
 // RPC 자치구 카운트 → ClusterGroup (BUSAN_DISTRICT_CENTER 좌표 사용, 화이트리스트 필터).
@@ -193,7 +193,7 @@ export function clusterDistrictCounts(counts: DistrictPinCount[]): ClusterGroup[
 
 // RPC 동 카운트 → ClusterGroup.
 // normalizeDong 으로 법정동 합침 + 도로명/null fallback → 자치구별 `(기타)` / `(도로명)` 그룹.
-// 가중 평균 좌표 (count 비례) — 합산 시 정확.
+// 가중 평균 좌표 (count 비례) - 합산 시 정확.
 export function clusterDongCounts(counts: DongPinCount[]): ClusterGroup[] {
   const acc = new Map<
     string,
