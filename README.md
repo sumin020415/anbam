@@ -296,7 +296,7 @@ public/
 | 🗨 인기 게시글 사이드바 (좋아요 상위 5) | 원본 nightsafe parity 마지막 - **의도적 제외** (velog 스타일 단일 컬럼 채택, "좋아요순" 정렬 탭이 대체 역할) | ⏸️ 제외 |
 | ⚡ Phase 11 - 메인 지도 RPC 성능 최적화 | `docs/schema.sql §10` 의 `get_district_pin_counts` / `get_dong_pin_counts` PostgreSQL 함수 + `pins.ts` RPC services + `clusterByDistrict.ts` RPC 헬퍼 + `(main)/page.tsx` 풀 fetch → RPC 전환. **응답 6 MB → 95 KB (63× 감소), 콜드 ~3~5초 / warm ~1~2초** | ✅ |
 | 🚀 Phase 11 후속 - Lighthouse 측정 + 모바일 OOM 수정 | Lighthouse 측정 (성능 **95** / **LCP 1.1s** / 접근성·SEO 100 / 권장사항 77) → LCP Good 이라 추가 캐싱 (unstable_cache / Edge / 정적 JSON) 불필요 판정. **모바일 개별 핀 OOM 튕김 수정** - 풀 row fetch → `getCctvPinsInBounds` / `getLampPinsInBounds` viewport bbox fetch (`KakaoMap.onIdle` + `getBounds`, 8만 row 동시 렌더 → 수백) | ✅ |
-| 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본) + 포트폴리오 사이트 카드 추가 | ⏳ |
+| 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본) + 포트폴리오 사이트 V2 카드 최신화 + README Notion 링크 활성화 | ✅ |
 
 ### 중기 (실사용 가능한 사이트로 확장)
 
