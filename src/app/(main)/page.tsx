@@ -64,6 +64,8 @@ export default async function HomePage({
         lampDongCounts={lampDongCounts}
         postPins={postPins}
         searchPosition={searchPosition}
+        showCctv={showCctv}
+        showLamp={showLamp}
       />
     </main>
   );

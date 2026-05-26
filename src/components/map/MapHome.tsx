@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CustomOverlayMap, MapInfoWindow, MapMarker } from 'react-kakao-maps-sdk';
 import KakaoMap, { DEFAULT_MAP_LEVEL, type KakaoMapInstance } from './KakaoMap';
@@ -45,6 +45,8 @@ type Props = {
   lampDongCounts: DongPinCount[];
   postPins: PostPin[];
   searchPosition?: { lat: number; lng: number } | null;
+  showCctv: boolean;
+  showLamp: boolean;
 };
 
 export default function MapHome({
@@ -54,6 +56,8 @@ export default function MapHome({
   lampDongCounts,
   postPins,
   searchPosition,
+  showCctv,
+  showLamp,
 }: Props) {
   const [active, setActive] = useState<ActivePin | null>(null);
   const [zoomLevel, setZoomLevel] = useState(DEFAULT_MAP_LEVEL);
@@ -95,9 +99,11 @@ export default function MapHome({
   // 개별 모드 첫 진입 + 아직 fetch 전 → 동 클러스터로 시각 컨텍스트 유지
   const showDongFallback = showIndividual && !hasIndividual && individualLoading;
 
-  // 개별 모드(줌 <3)에서 지도가 멈출 때(idle) 현재 화면 영역의 핀만 fetch.
-  // debounce 300ms 로 연속 팬/줌 중복 호출 방지. 풀 row 렌더 회피가 핵심.
-  const handleIdle = (map: KakaoMapInstance) => {
+  // 개별 모드(줌 <3)에서 현재 화면(bounds) 안의 핀만 fetch. 필터(showCctv/showLamp) 적용.
+  // 풀 row (~84k) 렌더 회피 + 필터 OFF 종류는 fetch 자체를 건너뜀.
+  const fetchInView = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
     if (map.getLevel() >= DONG_THRESHOLD) return; // 개별 모드 아님 → fetch 안 함
     const b = map.getBounds();
     const sw = b.getSouthWest();
@@ -108,26 +114,35 @@ export default function MapHome({
       neLat: ne.getLat(),
       neLng: ne.getLng(),
     };
+    setIndividualLoading(true);
+    const client = createClient();
+    Promise.all([
+      showCctv ? getCctvPinsInBounds(client, bounds) : Promise.resolve<CctvPin[]>([]),
+      showLamp ? getLampPinsInBounds(client, bounds) : Promise.resolve<LampPin[]>([]),
+    ])
+      .then(([cctv, lamp]) => {
+        setCctvIndividual(cctv);
+        setLampIndividual(lamp);
+      })
+      .catch((e) => {
+        console.error('[MapHome] individual bounds fetch error:', e);
+      })
+      .finally(() => {
+        setIndividualLoading(false);
+      });
+  }, [showCctv, showLamp]);
+
+  // 지도가 멈출 때(idle) debounce 300ms 로 fetch (연속 팬/줌 중복 호출 방지)
+  const handleIdle = (map: KakaoMapInstance) => {
+    if (map.getLevel() >= DONG_THRESHOLD) return;
     if (boundsFetchTimer.current) clearTimeout(boundsFetchTimer.current);
-    boundsFetchTimer.current = setTimeout(() => {
-      setIndividualLoading(true);
-      const client = createClient();
-      Promise.all([
-        getCctvPinsInBounds(client, bounds),
-        getLampPinsInBounds(client, bounds),
-      ])
-        .then(([cctv, lamp]) => {
-          setCctvIndividual(cctv);
-          setLampIndividual(lamp);
-        })
-        .catch((e) => {
-          console.error('[MapHome] individual bounds fetch error:', e);
-        })
-        .finally(() => {
-          setIndividualLoading(false);
-        });
-    }, 300);
+    boundsFetchTimer.current = setTimeout(fetchInView, 300);
   };
+
+  // 필터 변경 시 개별 모드면 현재 화면 기준 재fetch (fetchInView 가 줌 레벨 self-guard)
+  useEffect(() => {
+    fetchInView();
+  }, [fetchInView]);
 
   // 개별 모드를 벗어나면(줌 아웃) 핀 비워 메모리 회수
   useEffect(() => {
@@ -159,7 +174,8 @@ export default function MapHome({
     map.setLevel(2);
     map.panTo(new LatLng(searchPosition.lat, searchPosition.lng));
     setZoomLevel(2);
-  }, [searchPosition]);
+    // 값 기반 deps: 같은 좌표(필터 변경 등 객체 재생성) 시 재발화 방지
+  }, [searchPosition?.lat, searchPosition?.lng]);
 
   // 지도 빈 영역 클릭 시 그 좌표에 파란 마커 (기존 핀 클릭은 stopPropagation 으로 분리됨)
   const handleMapClick = (latLng: { lat: number; lng: number }) => {
@@ -251,7 +267,7 @@ export default function MapHome({
             onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'cctv' })}
           />
         ))}
-      {showIndividual &&
+      {showIndividual && showCctv &&
         cctvIndividual.map((p) => (
           <MapPin
             key={`cctv-${p.id}`}
@@ -283,7 +299,7 @@ export default function MapHome({
             onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'lamp' })}
           />
         ))}
-      {showIndividual &&
+      {showIndividual && showLamp &&
         lampIndividual.map((p) => (
           <MapPin
             key={`lamp-${p.id}`}
