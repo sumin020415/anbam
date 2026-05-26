@@ -20,9 +20,9 @@ export default function PostCard({ post }: { post: PostRow }) {
   return (
     <Link
       href={`/posts/${post.id}`}
-      className="flex h-full flex-col overflow-hidden rounded-anbam border border-line-1 bg-white shadow-card transition hover:-translate-y-0.5 hover:border-point hover:shadow-md"
+      className="flex h-full flex-row overflow-hidden rounded-anbam border border-line-1 bg-white shadow-card transition hover:-translate-y-0.5 hover:border-point hover:shadow-md sm:flex-col"
     >
-      <div className="relative aspect-[16/9] w-full bg-line-2">
+      <div className="relative aspect-square w-28 shrink-0 bg-line-2 sm:aspect-[16/9] sm:w-full">
         {post.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -52,25 +52,25 @@ export default function PostCard({ post }: { post: PostRow }) {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-5">
+      <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-5">
         <div className="min-h-0 flex-1">
           <h3 className="text-base font-bold text-ink-1 line-clamp-2">
             {post.title}
           </h3>
-          <p className="mt-2 text-sm text-ink-2 line-clamp-3 whitespace-pre-wrap">
+          <p className="mt-1 text-sm text-ink-2 line-clamp-2 whitespace-pre-wrap sm:mt-2 sm:line-clamp-3">
             {post.content}
           </p>
         </div>
 
-        <p className="mt-4 text-xs text-ink-2">
+        <p className="mt-2 text-xs text-ink-2 sm:mt-4">
           {formatDateTime(post.created_at)}
         </p>
 
-        <div className="mt-3 flex items-center justify-between border-t border-line-1 pt-3 text-xs">
-          <span className="font-medium text-ink-1">
+        <div className="mt-2 flex items-center justify-between border-t border-line-1 pt-2 text-xs sm:mt-3 sm:pt-3">
+          <span className="truncate font-medium text-ink-1">
             {post.profiles?.nickname ?? '익명'}
           </span>
-          <span className="flex items-center gap-2.5 text-ink-2">
+          <span className="flex shrink-0 items-center gap-2 text-ink-2 sm:gap-2.5">
             <span>조회 {post.view_count}</span>
             <span aria-label="좋아요 수">👍 {post.like_count ?? 0}</span>
             <span aria-label="싫어요 수">👎 {post.dislike_count ?? 0}</span>

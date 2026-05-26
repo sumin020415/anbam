@@ -33,15 +33,15 @@ export default function PostTabs({ current }: { current: PostSort }) {
       aria-label="게시글 정렬"
       className={`mb-6 border-b border-line-1 ${pending ? 'opacity-60' : ''}`}
     >
-      <ul className="flex flex-wrap items-center gap-1">
+      <ul className="flex flex-nowrap items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((tab) => {
           const active = current === tab.key;
           return (
-            <li key={tab.key}>
+            <li key={tab.key} className="shrink-0">
               <button
                 type="button"
                 onClick={() => handleClick(tab.key)}
-                className={`relative px-4 py-3 text-sm font-bold transition ${
+                className={`relative whitespace-nowrap px-3 py-3 text-sm font-bold transition sm:px-4 ${
                   active
                     ? 'text-ink-1'
                     : 'text-ink-2 hover:text-ink-1'
@@ -52,7 +52,7 @@ export default function PostTabs({ current }: { current: PostSort }) {
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute inset-x-3 -bottom-px h-0.5 bg-ink-1"
+                    className="absolute inset-x-3 -bottom-px h-0.5 bg-ink-1 sm:inset-x-4"
                   />
                 )}
               </button>
