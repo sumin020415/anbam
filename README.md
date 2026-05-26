@@ -58,6 +58,7 @@
 | ✏️ Floating 작성 버튼 (게시판 우하단 + 비로그인 시 로그인 페이지) | ✅ |
 | ⬆ 스크롤 탑 버튼 (스크롤 200px+ 시 우하단 floating, smooth scroll) | ✅ |
 | 📊 분석 페이지 (`/analysis`) - 부산 SVG 자치구 클릭 + 사이드 패널 (인구 대비 안전 점수) + 3 Tab Chart.js (제보 수 / CCTV·보안등 누적 / KST 시계열) + framer-motion 펼침 | ✅ |
+| 📱 반응형 모바일 UX - nav 햄버거 우측 슬라이드 드로어 + 지도 검색·필터 모바일 서브바 (필터 full-width + 검색 아이콘 탭 펼침) + 제보 카드 모바일 가로형 리스트 (좌측 썸네일 + 우측 텍스트) + 데스크탑 헤더 분기 `xl`(1280) 상향 (태블릿·iPad 세로는 모바일 레이아웃) | ✅ |
 
 ---
 
@@ -209,7 +210,7 @@ src/
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
 │   ├── map/                          # KakaoMap (래퍼, onMapCreate + onIdle + getBounds) / MapHome (메인 홈 + 3단 줌 분기 자치구·동·개별 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link + **Phase 11 개별 핀 viewport bbox fetch (onIdle + getBounds, debounce 300ms, 줌아웃 시 핀 비워 메모리 회수) + 동 클러스터 fallback + 우상단 fixed indicator**) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구·동 클러스터, count, sizeOf 36~48px, CustomOverlayMap zIndex) / clusterByDistrict (BUSAN_DISTRICTS 16 화이트리스트 + BUSAN_DISTRICT_CENTER 시내 5 자치구 분산 좌표 + clusterByDistrict + clusterByDong + normalizeDong 5 단계 정규화: 비정상값 skip → 도로명 skip → 도로명+번지 skip → 첫 (동|읍|면) lazy 추출 → 행정→법정 + **Phase 11 RPC 헬퍼 `clusterDistrictCounts` / `clusterDongCounts` ⭐**)
 │   ├── auth/LogoutButton.tsx
-│   └── layout/                       # Header (중앙: 필터 토글 + 검색) / HeaderSearchBox (Places + Geocoder 병렬, debounce 500ms) / PinFilterToggle (4 segmented, ?filter URL query) / ScrollToTopButton (모든 메인 페이지, 200px+ floating ↑)
+│   └── layout/                       # Header (xl+ 데스크탑 3-컬럼 / xl 미만 햄버거) / MobileNav (모바일 nav 우측 슬라이드 드로어) / MobileMapBar (모바일 지도 페이지 검색·필터 서브바) / HeaderSearchBox (Places + Geocoder 병렬, debounce 500ms) / PinFilterToggle (4 segmented, ?filter URL query, fullWidth prop) / ScrollToTopButton (모든 메인 페이지, 200px+ floating ↑)
 ├── hooks/                            # useUser (onAuthStateChange 구독)
 ├── lib/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
