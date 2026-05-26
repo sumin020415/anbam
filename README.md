@@ -46,7 +46,7 @@
 | 👍👎 좋아요 / 싫어요 (복합 PK upsert, 토글/전환) | ✅ |
 | 🗺 Kakao Map + CCTV/보안등/제보 핀 (종류별 색 + InfoWindow) | ✅ |
 | 🗂 3 단 줌 클러스터링 (줌 ≥ 6 = 자치구 16개 / 3~5 = 동 ~150~200개 / < 3 = 개별 핀) | ✅ |
-| ⚡ 메인 지도 RPC 성능 최적화 - `get_district_pin_counts` / `get_dong_pin_counts` PostgreSQL 함수로 GROUP BY COUNT 만 fetch (응답 **6 MB → 95 KB, 63× 감소**) + 줌 <3 진입 시 개별 핀 lazy fetch + transparent fallback + 우상단 "개별 핀 불러오는 중…" indicator | ✅ |
+| ⚡ 메인 지도 RPC 성능 최적화 - `get_district_pin_counts` / `get_dong_pin_counts` PostgreSQL 함수로 GROUP BY COUNT 만 fetch (응답 **6 MB → 95 KB, 63× 감소**) + 줌 <3 진입 시 개별 핀 **viewport bbox fetch** (현재 화면 영역 핀만 - 8만 row 동시 렌더 모바일 OOM 방지) + 동 클러스터 fallback + 우상단 "개별 핀 불러오는 중…" indicator. Lighthouse 성능 **95** / **LCP 1.1s** | ✅ |
 | 🧭 자치구·동 보정 스크립트 (Kakao Local REST API reverse geocoding, `npm run seed:all` chain 으로 자동 - 누적 **41,551 호출 / 3 회 100% 정확도**) | ✅ |
 | 🔍 헤더 위치 검색 (Kakao Places + Geocoder 병렬, 명칭·도로명·지번 모두) | ✅ |
 | 🎚 핀 필터 토글 (전체/CCTV/보안등/제보, URL query `?filter=X` 기반) | ✅ |
@@ -207,7 +207,7 @@ src/
 │   ├── analysis/                     # BusanSvg (수동 변환, 16 path id 보존, controlled props) / BusanMap (getBBox 라벨 + 위험·안전 범례 + mx-auto lg:mx-0) / DistrictBarChart (Tab 1 제보 수) / InfraStackedBar (Tab 2 CCTV+LAMP 누적) / PerCapitaPanel (사이드 - 인구·밀도·1대당·안전 점수) / TrendLineChart (Tab 3 일별/시간대 Line) / AnalysisTabs (orchestration - lg:items-center + 3 Tab + AnimatePresence)
 │   ├── post/                         # PostCard (velog 16:9 thumbnail + placeholder 3단 [이미지→지도→로고] + 메타 4종 조회/👍/👎/💬 + h-full + hover lift) / PostList (grid 1/2/3 cols + key reset) / PostTabs (5종 정렬 segmented + useTransition pending) / SearchBox (제목·본문 ilike + ?q query + 브라우저 기본 ✕ 제거) / PostForm (위치 picker + 이미지 업로드 + `?lat&lng` query 마운트 자동 reverseGeocode) / PostLocation (상세 본문 아래 위치 지도 h-56) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
-│   ├── map/                          # KakaoMap (래퍼, onMapCreate) / MapHome (메인 홈 + 3단 줌 분기 자치구·동·개별 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link + **Phase 11 개별 핀 lazy fetch + transparent fallback + 우상단 fixed indicator**) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구·동 클러스터, count, sizeOf 36~48px, CustomOverlayMap zIndex) / clusterByDistrict (BUSAN_DISTRICTS 16 화이트리스트 + BUSAN_DISTRICT_CENTER 시내 5 자치구 분산 좌표 + clusterByDistrict + clusterByDong + normalizeDong 5 단계 정규화: 비정상값 skip → 도로명 skip → 도로명+번지 skip → 첫 (동|읍|면) lazy 추출 → 행정→법정 + **Phase 11 RPC 헬퍼 `clusterDistrictCounts` / `clusterDongCounts` ⭐**)
+│   ├── map/                          # KakaoMap (래퍼, onMapCreate + onIdle + getBounds) / MapHome (메인 홈 + 3단 줌 분기 자치구·동·개별 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link + **Phase 11 개별 핀 viewport bbox fetch (onIdle + getBounds, debounce 300ms, 줌아웃 시 핀 비워 메모리 회수) + 동 클러스터 fallback + 우상단 fixed indicator**) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구·동 클러스터, count, sizeOf 36~48px, CustomOverlayMap zIndex) / clusterByDistrict (BUSAN_DISTRICTS 16 화이트리스트 + BUSAN_DISTRICT_CENTER 시내 5 자치구 분산 좌표 + clusterByDistrict + clusterByDong + normalizeDong 5 단계 정규화: 비정상값 skip → 도로명 skip → 도로명+번지 skip → 첫 (동|읍|면) lazy 추출 → 행정→법정 + **Phase 11 RPC 헬퍼 `clusterDistrictCounts` / `clusterDongCounts` ⭐**)
 │   ├── auth/LogoutButton.tsx
 │   └── layout/                       # Header (중앙: 필터 토글 + 검색) / HeaderSearchBox (Places + Geocoder 병렬, debounce 500ms) / PinFilterToggle (4 segmented, ?filter URL query) / ScrollToTopButton (모든 메인 페이지, 200px+ floating ↑)
 ├── hooks/                            # useUser (onAuthStateChange 구독)
@@ -215,7 +215,7 @@ src/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment)
 │   ├── utils/                        # server-safe utility (server/client 양쪽 import 가능) - pinFilter (타입/가드/OPTIONS)
-│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts[getPosts 통합 - 5종 sort latest·likes·dislikes·views·comments + 검색 ilike + escapeIlikeTerm + comments(count) join + reactions 별도 fetch + DB 정렬 가능/불가능 분기]/comments/reactions/pins[**Phase 11 `getDistrictPinCounts` / `getDongPinCounts` RPC ⭐ (6MB → 95KB, 63× 감소)** + `DistrictPinCount` / `DongPinCount` 타입 + 기존 `getCctvPins` / `getLampPins` (개별 핀 lazy fetch 용, 1000-row range pagination, PINS_FETCH_LIMIT=75000)]/storage/analytics[자치구 카운트 N 병렬 + KST 시계열])
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles/posts[getPosts 통합 - 5종 sort latest·likes·dislikes·views·comments + 검색 ilike + escapeIlikeTerm + comments(count) join + reactions 별도 fetch + DB 정렬 가능/불가능 분기]/comments/reactions/pins[**Phase 11 `getDistrictPinCounts` / `getDongPinCounts` RPC ⭐ (6MB → 95KB, 63× 감소)** + `DistrictPinCount` / `DongPinCount` 타입 + `getCctvPinsInBounds` / `getLampPinsInBounds` (개별 핀 모드 viewport bbox fetch - gte/lte lat·lng + BOUNDS_FETCH_CAP=2000) + `LatLngBounds` 타입]/storage/analytics[자치구 카운트 N 병렬 + KST 시계열])
 ├── data/                             # 정적 데이터 - busanStatic.ts (헬퍼) + gu_name + population + population_density JSON (분석 페이지)
 └── proxy.ts                          # 세션 자동 갱신 (Next.js 16, `export async function proxy(req)` + matcher config)
 
@@ -294,8 +294,8 @@ public/
 | 📊 분석 페이지 (`/analysis`) | 부산 SVG 자치구 클릭 (16 path id 보존, 수동 변환) + 사이드 패널 (인구·밀도·CCTV/LAMP 1대당·안전 점수) + 3 Tab Chart.js (제보 수 / CCTV+LAMP 누적 / KST 일별·시간대 Line) + framer-motion 펼침/접힘 + Header 분석 메뉴 활성화 + `shrink-0` (긴 본문 페이지 헤더 압축 방지) | ✅ |
 | 🎴 velog 스타일 게시판 리뉴얼 | 5종 정렬 (`PostTabs`) + 검색 (`SearchBox`, ilike + ?q) + velog 카드 (16:9 + placeholder 3단 + 메타 4종) + 상세 위치 지도 (`PostLocation`) + 작성/수정/상세 너비·뒤로가기 통일. `getPosts` 통합 services (DB 정렬 가능/불가능 분기). 카드 댓글 수 `💬 N` 포함 | ✅ |
 | 🗨 인기 게시글 사이드바 (좋아요 상위 5) | 원본 nightsafe parity 마지막 - **의도적 제외** (velog 스타일 단일 컬럼 채택, "좋아요순" 정렬 탭이 대체 역할) | ⏸️ 제외 |
-| ⚡ Phase 11 - 메인 지도 RPC 성능 최적화 | `docs/schema.sql §10` 의 `get_district_pin_counts` / `get_dong_pin_counts` PostgreSQL 함수 + `pins.ts` RPC services + `clusterByDistrict.ts` RPC 헬퍼 + `MapHome.tsx` lazy fetch + transparent fallback + 우상단 indicator + `(main)/page.tsx` 풀 fetch → RPC 전환. **응답 6 MB → 95 KB (63× 감소), 콜드 ~3~5초 / warm ~1~2초** | ✅ |
-| 🚀 Phase 11 후속 성능 측정 + (선택) 추가 캐싱 | PageSpeed Insights 측정 (LCP/FCP) + Vercel Analytics 활성화 + (LCP > 3s 시 선택) `unstable_cache` 로 RPC 응답 5분 캐싱 / Edge Runtime (`runtime = 'edge'`) / 빌드 시 정적 JSON pre-generate | ⏳ |
+| ⚡ Phase 11 - 메인 지도 RPC 성능 최적화 | `docs/schema.sql §10` 의 `get_district_pin_counts` / `get_dong_pin_counts` PostgreSQL 함수 + `pins.ts` RPC services + `clusterByDistrict.ts` RPC 헬퍼 + `(main)/page.tsx` 풀 fetch → RPC 전환. **응답 6 MB → 95 KB (63× 감소), 콜드 ~3~5초 / warm ~1~2초** | ✅ |
+| 🚀 Phase 11 후속 - Lighthouse 측정 + 모바일 OOM 수정 | Lighthouse 측정 (성능 **95** / **LCP 1.1s** / 접근성·SEO 100 / 권장사항 77) → LCP Good 이라 추가 캐싱 (unstable_cache / Edge / 정적 JSON) 불필요 판정. **모바일 개별 핀 OOM 튕김 수정** - 풀 row fetch → `getCctvPinsInBounds` / `getLampPinsInBounds` viewport bbox fetch (`KakaoMap.onIdle` + `getBounds`, 8만 row 동시 렌더 → 수백) | ✅ |
 | 📖 문서화 | Notion 페이지 게시 (개발 로그 통합본) + 포트폴리오 사이트 카드 추가 | ⏳ |
 
 ### 중기 (실사용 가능한 사이트로 확장)
