@@ -6,10 +6,20 @@ import { Map, useKakaoLoader } from 'react-kakao-maps-sdk';
 export const BUSAN_CENTER = { lat: 35.1796, lng: 129.0756 };
 export const DEFAULT_MAP_LEVEL = 6;
 
+export type KakaoLatLng = {
+  getLat: () => number;
+  getLng: () => number;
+};
+
 // Kakao Map 인스턴스 타입 - services 가 setLevel/panTo 등 imperative API 제공
 export type KakaoMapInstance = {
   setLevel: (level: number) => void;
   panTo: (latlng: unknown) => void;
+  getLevel: () => number;
+  getBounds: () => {
+    getSouthWest: () => KakaoLatLng;
+    getNorthEast: () => KakaoLatLng;
+  };
 };
 
 type Props = {
@@ -19,6 +29,7 @@ type Props = {
   children?: ReactNode;
   onClick?: (latLng: { lat: number; lng: number }) => void;
   onZoomChanged?: (level: number) => void;
+  onIdle?: (map: KakaoMapInstance) => void;
   onMapCreate?: (map: KakaoMapInstance) => void;
 };
 
@@ -29,6 +40,7 @@ export default function KakaoMap({
   children,
   onClick,
   onZoomChanged,
+  onIdle,
   onMapCreate,
 }: Props) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
@@ -75,6 +87,7 @@ export default function KakaoMap({
           : undefined
       }
       onZoomChanged={onZoomChanged ? (map) => onZoomChanged(map.getLevel()) : undefined}
+      onIdle={onIdle ? (map) => onIdle(map as unknown as KakaoMapInstance) : undefined}
       onCreate={onMapCreate ? (map) => onMapCreate(map as unknown as KakaoMapInstance) : undefined}
     >
       {children}

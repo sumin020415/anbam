@@ -12,8 +12,8 @@ import {
   type ClusterGroup,
 } from './clusterByDistrict';
 import {
-  getCctvPins,
-  getLampPins,
+  getCctvPinsInBounds,
+  getLampPinsInBounds,
   type CctvPin,
   type LampPin,
   type PostPin,
@@ -64,11 +64,12 @@ export default function MapHome({
   const [activeMarkerAddress, setActiveMarkerAddress] = useState<string | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
 
-  // 개별 핀 모드 진입 시 lazy fetch - 풀 row (~84k) 첫 로드 회피.
-  // 한 번 fetch 후 캐싱 (이후 줌 인은 즉시 표시).
-  const [cctvIndividual, setCctvIndividual] = useState<CctvPin[] | null>(null);
-  const [lampIndividual, setLampIndividual] = useState<LampPin[] | null>(null);
+  // 개별 핀 모드: 현재 화면(bounds) 안의 핀만 fetch.
+  // 풀 row (~84k) 를 한 번에 렌더하면 모바일 메모리 초과로 탭이 튕김 → viewport fetch.
+  const [cctvIndividual, setCctvIndividual] = useState<CctvPin[]>([]);
+  const [lampIndividual, setLampIndividual] = useState<LampPin[]>([]);
   const [individualLoading, setIndividualLoading] = useState(false);
+  const boundsFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cctvDistrictClusters = useMemo(
     () => clusterDistrictCounts(cctvDistrictCounts),
@@ -90,30 +91,58 @@ export default function MapHome({
   const showDistrict = zoomLevel >= DISTRICT_THRESHOLD;
   const showDong = !showDistrict && zoomLevel >= DONG_THRESHOLD;
   const showIndividual = !showDistrict && !showDong;
-  // 개별 핀 모드 진입 + fetch 미완료 → 동 클러스터 transparent fallback (시각 컨텍스트 유지)
-  const showIndividualReady =
-    showIndividual && cctvIndividual !== null && lampIndividual !== null;
-  const showDongFallback = showIndividual && !showIndividualReady;
+  const hasIndividual = cctvIndividual.length > 0 || lampIndividual.length > 0;
+  // 개별 모드 첫 진입 + 아직 fetch 전 → 동 클러스터로 시각 컨텍스트 유지
+  const showDongFallback = showIndividual && !hasIndividual && individualLoading;
 
-  // 줌 <3 처음 진입 시 개별 핀 풀 fetch (한 번만)
+  // 개별 모드(줌 <3)에서 지도가 멈출 때(idle) 현재 화면 영역의 핀만 fetch.
+  // debounce 300ms 로 연속 팬/줌 중복 호출 방지. 풀 row 렌더 회피가 핵심.
+  const handleIdle = (map: KakaoMapInstance) => {
+    if (map.getLevel() >= DONG_THRESHOLD) return; // 개별 모드 아님 → fetch 안 함
+    const b = map.getBounds();
+    const sw = b.getSouthWest();
+    const ne = b.getNorthEast();
+    const bounds = {
+      swLat: sw.getLat(),
+      swLng: sw.getLng(),
+      neLat: ne.getLat(),
+      neLng: ne.getLng(),
+    };
+    if (boundsFetchTimer.current) clearTimeout(boundsFetchTimer.current);
+    boundsFetchTimer.current = setTimeout(() => {
+      setIndividualLoading(true);
+      const client = createClient();
+      Promise.all([
+        getCctvPinsInBounds(client, bounds),
+        getLampPinsInBounds(client, bounds),
+      ])
+        .then(([cctv, lamp]) => {
+          setCctvIndividual(cctv);
+          setLampIndividual(lamp);
+        })
+        .catch((e) => {
+          console.error('[MapHome] individual bounds fetch error:', e);
+        })
+        .finally(() => {
+          setIndividualLoading(false);
+        });
+    }, 300);
+  };
+
+  // 개별 모드를 벗어나면(줌 아웃) 핀 비워 메모리 회수
   useEffect(() => {
-    if (!showIndividual) return;
-    if (cctvIndividual !== null && lampIndividual !== null) return;
-    if (individualLoading) return;
-    setIndividualLoading(true);
-    const client = createClient();
-    Promise.all([getCctvPins(client), getLampPins(client)])
-      .then(([cctv, lamp]) => {
-        setCctvIndividual(cctv);
-        setLampIndividual(lamp);
-      })
-      .catch((e) => {
-        console.error('[MapHome] individual fetch error:', e);
-      })
-      .finally(() => {
-        setIndividualLoading(false);
-      });
-  }, [showIndividual, cctvIndividual, lampIndividual, individualLoading]);
+    if (!showIndividual) {
+      setCctvIndividual([]);
+      setLampIndividual([]);
+    }
+  }, [showIndividual]);
+
+  // 언마운트 시 대기 중인 fetch 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (boundsFetchTimer.current) clearTimeout(boundsFetchTimer.current);
+    };
+  }, []);
 
   // 헤더 검색에서 좌표 query 로 진입 시 자동으로 그 위치로 이동 + 줌인 (개별 핀 모드)
   // + activeMarker 동기화
@@ -195,6 +224,7 @@ export default function MapHome({
       <KakaoMap
         onClick={handleMapClick}
         onZoomChanged={setZoomLevel}
+        onIdle={handleIdle}
         onMapCreate={(m) => {
           mapRef.current = m;
         }}
@@ -221,8 +251,8 @@ export default function MapHome({
             onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'cctv' })}
           />
         ))}
-      {showIndividualReady &&
-        cctvIndividual!.map((p) => (
+      {showIndividual &&
+        cctvIndividual.map((p) => (
           <MapPin
             key={`cctv-${p.id}`}
             type="cctv"
@@ -253,8 +283,8 @@ export default function MapHome({
             onClick={() => setActive({ kind: 'cluster', cluster: c, clusterKind: 'lamp' })}
           />
         ))}
-      {showIndividualReady &&
-        lampIndividual!.map((p) => (
+      {showIndividual &&
+        lampIndividual.map((p) => (
           <MapPin
             key={`lamp-${p.id}`}
             type="lamp"

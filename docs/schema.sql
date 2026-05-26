@@ -350,7 +350,7 @@ grant usage, select on all sequences in schema public to service_role;
 -- 클라이언트 측에서:
 --   - 자치구 모드 (줌 6+): get_district_pin_counts → 16 row → BUSAN_DISTRICT_CENTER 좌표 lookup
 --   - 동 모드 (줌 3~5): get_dong_pin_counts → ~200 row → normalizeDong 정규화 + 합산
---   - 개별 핀 모드 (줌 <3): 기존 getCctvPins / getLampPins (클라 lazy fetch)
+--   - 개별 핀 모드 (줌 <3): getCctvPinsInBounds / getLampPinsInBounds (현재 화면 영역만 fetch)
 
 -- 자치구 단위 핀 카운트 (16 row 반환)
 -- target_table 인자로 cctvs / lamps 동적 선택 (format %I 로 SQL injection 안전)

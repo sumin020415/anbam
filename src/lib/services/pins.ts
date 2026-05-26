@@ -40,70 +40,69 @@ export type DongPinCount = {
   lng: number;
 };
 
-// 줌 <3 (개별 핀 모드) 진입 시에만 호출. 풀 시드 ~84k row → 6MB JSON.
-// LAMP 풀 시드 (68,168) + 여유. CCTV 15k / Post 는 영향 X.
+// getPostPins 안전 ceiling (제보는 수십 row 라 실제 도달 X).
 export const PINS_FETCH_LIMIT = 75000;
+
+// 개별 핀 모드 (줌 <3) viewport fetch 의 안전 상한.
+// 좁은 화면 영역이라 보통 수십~수백 row. 이 cap 은 OOM 방지용 (모바일 DOM 마커 한도).
+const BOUNDS_FETCH_CAP = 2000;
 
 // Supabase PostgREST 의 기본 max-rows 한도 (Dashboard 설정 무관 안전 가정).
 // 단일 fetch 가 이 값 넘으면 잘림 → range() 로 페이지네이션.
 const SUPABASE_MAX_ROWS = 1000;
 
+// 카카오맵 getBounds() → SW/NE 좌표.
+export type LatLngBounds = {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+};
+
 function logPinError(scope: string, error: unknown): void {
   console.error(`[pins:${scope}] Supabase error:`, error);
 }
 
-export async function getCctvPins(
+// 개별 핀 모드: 현재 화면(bounds) 안의 CCTV 핀만 fetch.
+// 풀 시드 ~84k row 를 한 번에 렌더하면 모바일 메모리 초과로 탭이 튕김 → viewport fetch.
+// 좁은 영역이라 보통 수십~수백 row (BOUNDS_FETCH_CAP 도달 X).
+export async function getCctvPinsInBounds(
   client: SupabaseClient,
-  opts: { limit?: number } = {},
+  bounds: LatLngBounds,
 ): Promise<CctvPin[]> {
-  const { limit = PINS_FETCH_LIMIT } = opts;
-  const all: CctvPin[] = [];
-  let from = 0;
-  while (all.length < limit) {
-    const to = Math.min(from + SUPABASE_MAX_ROWS - 1, limit - 1);
-    const { data, error } = await client
-      .from('cctvs')
-      .select('id, lat, lng, district, dong, purpose')
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .range(from, to);
-    if (error) {
-      logPinError('cctv', error);
-      return all;
-    }
-    if (!data || data.length === 0) break;
-    all.push(...(data as unknown as CctvPin[]));
-    if (data.length < SUPABASE_MAX_ROWS) break;
-    from += SUPABASE_MAX_ROWS;
+  const { data, error } = await client
+    .from('cctvs')
+    .select('id, lat, lng, district, dong, purpose')
+    .gte('lat', bounds.swLat)
+    .lte('lat', bounds.neLat)
+    .gte('lng', bounds.swLng)
+    .lte('lng', bounds.neLng)
+    .limit(BOUNDS_FETCH_CAP);
+  if (error) {
+    logPinError('cctv:bounds', error);
+    return [];
   }
-  return all;
+  return (data ?? []) as unknown as CctvPin[];
 }
 
-export async function getLampPins(
+// 개별 핀 모드: 현재 화면(bounds) 안의 보안등 핀만 fetch.
+export async function getLampPinsInBounds(
   client: SupabaseClient,
-  opts: { limit?: number } = {},
+  bounds: LatLngBounds,
 ): Promise<LampPin[]> {
-  const { limit = PINS_FETCH_LIMIT } = opts;
-  const all: LampPin[] = [];
-  let from = 0;
-  while (all.length < limit) {
-    const to = Math.min(from + SUPABASE_MAX_ROWS - 1, limit - 1);
-    const { data, error } = await client
-      .from('lamps')
-      .select('id, lat, lng, district, dong')
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .range(from, to);
-    if (error) {
-      logPinError('lamp', error);
-      return all;
-    }
-    if (!data || data.length === 0) break;
-    all.push(...(data as unknown as LampPin[]));
-    if (data.length < SUPABASE_MAX_ROWS) break;
-    from += SUPABASE_MAX_ROWS;
+  const { data, error } = await client
+    .from('lamps')
+    .select('id, lat, lng, district, dong')
+    .gte('lat', bounds.swLat)
+    .lte('lat', bounds.neLat)
+    .gte('lng', bounds.swLng)
+    .lte('lng', bounds.neLng)
+    .limit(BOUNDS_FETCH_CAP);
+  if (error) {
+    logPinError('lamp:bounds', error);
+    return [];
   }
-  return all;
+  return (data ?? []) as unknown as LampPin[];
 }
 
 export async function getPostPins(
