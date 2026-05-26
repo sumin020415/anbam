@@ -7,7 +7,8 @@ import {
   type PinFilter,
 } from '@/lib/utils/pinFilter';
 
-export default function PinFilterToggle() {
+// fullWidth: 모바일 서브바에서 바 폭을 4 등분으로 채울 때 사용 (데스크탑은 기본 content-width)
+export default function PinFilterToggle({ fullWidth = false }: { fullWidth?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -25,11 +26,15 @@ export default function PinFilterToggle() {
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
+  const btnBase = `rounded-[10px] px-2.5 py-1 ${fullWidth ? 'flex-1 text-center' : ''}`;
+
   return (
     <div
       role="radiogroup"
       aria-label="핀 필터"
-      className="flex items-center rounded-anbam border border-line-1 bg-white p-0.5 text-xs"
+      className={`flex items-center rounded-anbam border border-line-1 bg-white p-0.5 text-xs ${
+        fullWidth ? 'w-full' : ''
+      }`}
     >
       {PIN_FILTER_OPTIONS.map((opt) => {
         const active = current === opt.value;
@@ -42,8 +47,8 @@ export default function PinFilterToggle() {
             onClick={() => handleSelect(opt.value)}
             className={
               active
-                ? 'rounded-[10px] bg-ink-1 px-2.5 py-1 font-bold text-white'
-                : 'rounded-[10px] px-2.5 py-1 text-ink-2 hover:text-ink-1'
+                ? `${btnBase} bg-ink-1 font-bold text-white`
+                : `${btnBase} text-ink-2 hover:text-ink-1`
             }
           >
             {opt.label}

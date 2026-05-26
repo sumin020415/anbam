@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import HeaderSearchBox from './HeaderSearchBox';
 import PinFilterToggle from './PinFilterToggle';
 import MobileNav from './MobileNav';
+import MobileMapBar from './MobileMapBar';
 
 const NAV_ITEMS: { href: string; label: string; disabled?: boolean }[] = [
   { href: '/', label: '홈' },
@@ -63,7 +64,8 @@ export default function Header() {
   const isMapPage = pathname === '/';
 
   return (
-    <header className="sticky top-0 z-10 h-nav shrink-0 flex items-center gap-4 px-4 sm:px-6 lg:px-10 xl:px-20 bg-white shadow-nav border-b border-line-1">
+    <>
+      <header className="sticky top-0 z-10 h-nav shrink-0 flex items-center gap-4 px-4 sm:px-6 lg:px-10 xl:px-20 bg-white shadow-nav border-b border-line-1">
       <Link href="/" className="flex items-center h-full shrink-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="안밤" className="h-8 w-auto" />
@@ -161,6 +163,8 @@ export default function Header() {
         loading={loading}
         onLogout={handleLogout}
       />
-    </header>
+      </header>
+      {isMapPage && <MobileMapBar />}
+    </>
   );
 }
