@@ -26,7 +26,7 @@ export default function PinFilterToggle({ fullWidth = false }: { fullWidth?: boo
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
-  const btnBase = `rounded-[10px] px-2.5 py-1 ${fullWidth ? 'flex-1 text-center' : ''}`;
+  const btnBase = `whitespace-nowrap rounded-[10px] px-2.5 py-1 ${fullWidth ? 'flex-1 text-center' : ''}`;
 
   return (
     <div

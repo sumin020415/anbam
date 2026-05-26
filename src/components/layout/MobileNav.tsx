@@ -43,7 +43,7 @@ export default function MobileNav({
     }`;
 
   return (
-    <div className="md:hidden">
+    <div className="xl:hidden">
       {/* 백드롭 */}
       <div
         className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${

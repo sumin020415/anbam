@@ -70,7 +70,7 @@ export default function Header() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="안밤" className="h-8 w-auto" />
       </Link>
-      <div className="hidden flex-1 items-center justify-center gap-3 md:flex">
+      <div className="hidden flex-1 items-center justify-center gap-3 xl:flex">
         {isMapPage && (
           <>
             <Suspense fallback={<div className="h-7 w-44 rounded-anbam border border-line-1 bg-white" />}>
@@ -80,7 +80,7 @@ export default function Header() {
           </>
         )}
       </div>
-      <nav className="hidden shrink-0 md:block">
+      <nav className="hidden shrink-0 xl:block">
         <ul className="flex items-center gap-10 text-ink-2 text-sm">
           {NAV_ITEMS.map((item) =>
             item.disabled ? (
@@ -136,7 +136,7 @@ export default function Header() {
         aria-label="메뉴 열기"
         aria-expanded={mobileOpen}
         aria-controls="mobile-nav"
-        className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded text-ink-2 hover:bg-line-2 md:hidden"
+        className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded text-ink-2 hover:bg-line-2 xl:hidden"
       >
         <svg
           width="24"

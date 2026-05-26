@@ -11,7 +11,7 @@ export default function MobileMapBar() {
   const [searchOpen, setSearchOpen] = useState(false);
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line-1 bg-white px-4 md:hidden">
+    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line-1 bg-white px-4 xl:hidden">
       {searchOpen ? (
         <>
           <div className="flex-1">
