@@ -3,7 +3,7 @@
 > Java/Spring Boot 로 만든 팀 (2주, 4인) 프로젝트를 풀스택 TypeScript + Supabase 로 1인 재구현한 사이드 프로젝트.
 
 🔗 **Live Demo** : https://anbam.vercel.app
-📖 **개발 로그 (Notion)** : _(정리 중 - 게시 예정)_
+📖 **개발 로그 (Notion)** : https://fate-waiter-a74.notion.site/2b45ea02823a811f8e7acaddce6caa91?p=36c5ea02823a80389af8c734ef89e611&pm=c
 
 ---
 
