@@ -421,6 +421,30 @@ grant execute on function public.get_dong_pin_counts(text) to anon, authenticate
 
 
 -- ============================================================
+-- 11. RPC 함수 - 게시글 조회수 증가
+-- ============================================================
+-- posts UPDATE RLS 는 작성자 본인만 (posts_update_self) + anon 은 update GRANT 없음.
+-- 따라서 클라이언트 일반 UPDATE 로 view_count 를 올리면 비로그인/타 사용자는 막힘
+-- (작성자가 자기 글 볼 때만 +1 되는 버그). public 조회수는 RLS 우회 RPC 가 정석.
+--   - security definer: 함수 소유자 권한으로 실행 → RLS/GRANT 우회
+--   - +1 만 수행 (임의 값 set 불가 → 안전). 누구나 호출 가능하지만 조작 불가
+-- ⚠️ post_id 는 bigint: 라이브 anbam 의 posts.id 가 bigint(정수) 임 (이 테이블이 위 §3 의
+--    uuid 정의보다 먼저 bigint 로 생성됨 → `create table if not exists` 가 덮어쓰지 않음).
+--    §3 의 uuid 표기는 신규 셋업 기준이며, 기존 라이브와 불일치. RPC 는 라이브 기준 bigint.
+create or replace function public.increment_post_view(post_id bigint)
+returns void
+language sql
+security definer
+set search_path = public, pg_temp
+as $$
+  update public.posts set view_count = view_count + 1 where id = post_id;
+$$;
+
+-- 비로그인(anon) 포함 모두 조회수 +1 가능
+grant execute on function public.increment_post_view(bigint) to anon, authenticated;
+
+
+-- ============================================================
 -- 완료
 -- ============================================================
 -- 검증 쿼리:

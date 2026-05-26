@@ -313,18 +313,15 @@ export async function deletePost(
   }
 }
 
+// 조회수 +1. 일반 UPDATE 는 posts RLS(작성자 본인만)+anon GRANT 없음으로 막혀서
+// 비로그인/타 사용자가 카운팅 안 됨 → SECURITY DEFINER RPC 로 RLS 우회 (docs/schema.sql §11).
 export async function incrementViewCount(
   client: SupabaseClient,
   id: string,
 ): Promise<void> {
-  const { data } = await client
-    .from('posts')
-    .select('view_count')
-    .eq('id', id)
-    .maybeSingle();
-  if (!data) return;
-  await client
-    .from('posts')
-    .update({ view_count: (data.view_count ?? 0) + 1 })
-    .eq('id', id);
+  // posts.id 는 라이브에서 bigint → RPC 인자도 number 로 전달 (schema.sql §11)
+  const postId = Number(id);
+  if (!Number.isFinite(postId)) return;
+  const { error } = await client.rpc('increment_post_view', { post_id: postId });
+  if (error) console.error('[posts:incrementViewCount] error:', error);
 }
