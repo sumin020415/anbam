@@ -85,7 +85,7 @@ create trigger on_auth_user_created
 -- ============================================================
 -- 시민 제보 게시글. 위치(lat/lng/address) 와 이미지는 nullable.
 create table if not exists public.posts (
-  id          uuid primary key default gen_random_uuid(),
+  id          bigint primary key generated always as identity,
   author_id   uuid not null references public.profiles(id) on delete cascade,
   title       text not null,
   content     text not null,
@@ -134,10 +134,10 @@ create policy "posts_delete_self"
 -- ============================================================
 -- parent_id 로 self-reference. depth 는 클라이언트에서 0~2 로 들여쓰기.
 create table if not exists public.comments (
-  id          uuid primary key default gen_random_uuid(),
-  post_id     uuid not null references public.posts(id) on delete cascade,
+  id          bigint primary key generated always as identity,
+  post_id     bigint not null references public.posts(id) on delete cascade,
   author_id   uuid not null references public.profiles(id) on delete cascade,
-  parent_id   uuid references public.comments(id) on delete cascade,
+  parent_id   bigint references public.comments(id) on delete cascade,
   content     text not null,
   created_at  timestamptz not null default now()
 );
@@ -174,7 +174,7 @@ create policy "comments_delete_self"
 -- (post_id, user_id) 복합 PK - 사용자당 게시글 1개 반응만.
 -- type 전환은 services 에서 upsert(onConflict='post_id,user_id') 로 처리.
 create table if not exists public.reactions (
-  post_id    uuid not null references public.posts(id) on delete cascade,
+  post_id    bigint not null references public.posts(id) on delete cascade,
   user_id    uuid not null references public.profiles(id) on delete cascade,
   type       text not null check (type in ('like', 'dislike')),
   created_at timestamptz not null default now(),
@@ -428,9 +428,7 @@ grant execute on function public.get_dong_pin_counts(text) to anon, authenticate
 -- (작성자가 자기 글 볼 때만 +1 되는 버그). public 조회수는 RLS 우회 RPC 가 정석.
 --   - security definer: 함수 소유자 권한으로 실행 → RLS/GRANT 우회
 --   - +1 만 수행 (임의 값 set 불가 → 안전). 누구나 호출 가능하지만 조작 불가
--- ⚠️ post_id 는 bigint: 라이브 anbam 의 posts.id 가 bigint(정수) 임 (이 테이블이 위 §3 의
---    uuid 정의보다 먼저 bigint 로 생성됨 → `create table if not exists` 가 덮어쓰지 않음).
---    §3 의 uuid 표기는 신규 셋업 기준이며, 기존 라이브와 불일치. RPC 는 라이브 기준 bigint.
+-- post_id 는 bigint: posts.id 가 bigint identity (§3). 라이브 anbam 도 동일 (초기부터 bigint 생성).
 create or replace function public.increment_post_view(post_id bigint)
 returns void
 language sql
