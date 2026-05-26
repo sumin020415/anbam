@@ -9,6 +9,7 @@ import { getProfile } from '@/lib/services/profiles';
 import { createClient } from '@/lib/supabase/client';
 import HeaderSearchBox from './HeaderSearchBox';
 import PinFilterToggle from './PinFilterToggle';
+import MobileNav from './MobileNav';
 
 const NAV_ITEMS: { href: string; label: string; disabled?: boolean }[] = [
   { href: '/', label: '홈' },
@@ -21,6 +22,12 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [nickname, setNickname] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // 라우트 변경 시 모바일 드로어 자동 닫기
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!user) {
@@ -71,7 +78,7 @@ export default function Header() {
           </>
         )}
       </div>
-      <nav className="shrink-0">
+      <nav className="hidden shrink-0 md:block">
         <ul className="flex items-center gap-10 text-ink-2 text-sm">
           {NAV_ITEMS.map((item) =>
             item.disabled ? (
@@ -121,6 +128,39 @@ export default function Header() {
           )}
         </ul>
       </nav>
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label="메뉴 열기"
+        aria-expanded={mobileOpen}
+        aria-controls="mobile-nav"
+        className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded text-ink-2 hover:bg-line-2 md:hidden"
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+      <MobileNav
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        navItems={NAV_ITEMS}
+        isActive={isActive}
+        isLoggedIn={!!user}
+        nickname={nickname}
+        loading={loading}
+        onLogout={handleLogout}
+      />
     </header>
   );
 }
