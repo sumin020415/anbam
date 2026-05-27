@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export async function getProfile(client: SupabaseClient, userId: string) {
   const { data, error } = await client
     .from('profiles')
-    .select('id, username, nickname, avatar_url')
+    .select('id, username, nickname, avatar_url, created_at')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;

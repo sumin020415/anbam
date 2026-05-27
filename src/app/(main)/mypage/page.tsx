@@ -44,6 +44,7 @@ export default async function MyPage() {
           isAdmin={admin}
           adminReports={adminReports}
           avatarUrl={profile?.avatar_url ?? null}
+          joinedAt={profile?.created_at ?? null}
         />
       </div>
     </main>
