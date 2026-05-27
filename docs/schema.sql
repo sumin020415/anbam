@@ -475,11 +475,14 @@ grant execute on function public.increment_post_view(bigint) to anon, authentica
 
 
 -- ============================================================
--- 12. reports (제보글·댓글 신고) + 관리자 워크플로
+-- 12. reports (제보글·댓글 신고 + 관리자 문의) + 관리자 워크플로
 -- ============================================================
--- 로그인 사용자가 제보글 또는 댓글을 신고. 대상은 post_id / comment_id 중 하나(check).
--- 타깃별 1인 1신고(unique). 관리자(profiles.is_admin)가 /admin/reports 에서 상태 변경 +
--- 답변(admin_reply) 작성 → 신고자는 마이페이지 "내 신고" 에서 상태/답변 확인.
+-- 로그인 사용자가 (1) 제보글 신고 (post_id) (2) 댓글 신고 (comment_id)
+-- (3) 관리자에게 일반 문의 (post_id·comment_id 둘 다 null) 를 작성.
+--   → 대상은 post_id / comment_id 중 "최대 하나" (둘 다 null 이면 일반 문의).
+-- 타깃별 1인 1신고(unique). 일반 문의는 둘 다 null 이라 unique 영향 없음 (여러 건 가능).
+-- 관리자(profiles.is_admin)가 마이페이지 "문의내역"(또는 /admin/reports)에서 상태 변경 +
+-- 답변(admin_reply) 작성 → 작성자는 마이페이지 "내 문의" 에서 상태/답변 확인.
 --   status: pending(접수) / reviewed(처리완료) / dismissed(반려)
 
 -- 관리자 플래그. 권한 부여 UI 는 없음 - 대시보드 Table editor 에서 본인 profiles row 의
@@ -513,9 +516,9 @@ create table public.reports (
   admin_reply text,
   replied_at  timestamptz,
   created_at  timestamptz not null default now(),
-  -- post_id / comment_id 중 정확히 하나만 (게시글 신고 또는 댓글 신고)
-  constraint reports_target_chk check (num_nonnulls(post_id, comment_id) = 1),
-  -- 타깃별 1인 1신고. null 은 distinct 라 다른 타깃 신고에는 영향 없음.
+  -- 대상은 post_id / comment_id 중 최대 하나 (둘 다 null = 관리자 일반 문의)
+  constraint reports_target_chk check (num_nonnulls(post_id, comment_id) <= 1),
+  -- 타깃별 1인 1신고. null 은 distinct 라 일반 문의(둘 다 null)는 여러 건 가능.
   unique (post_id, reporter_id),
   unique (comment_id, reporter_id)
 );

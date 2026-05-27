@@ -30,6 +30,8 @@ function ReportRow({ report }: { report: AdminReportRow }) {
   const [saved, setSaved] = useState(false);
 
   const isComment = report.comment_id != null;
+  const isInquiry = report.post_id == null && report.comment_id == null;
+  const kindLabel = isInquiry ? '문의' : isComment ? '댓글' : '게시글';
   const targetPostId = isComment ? report.comments?.post_id : report.post_id;
   const targetText = isComment ? report.comments?.content : report.posts?.title;
 
@@ -55,32 +57,41 @@ function ReportRow({ report }: { report: AdminReportRow }) {
     <li className="rounded-anbam border border-line-1 bg-white p-4 shadow-card">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded bg-line-2 px-1.5 py-0.5 text-xs font-bold text-ink-2">
-          {isComment ? '댓글' : '게시글'}
+          {kindLabel}
         </span>
         <span className="text-sm font-bold text-ink-1">{report.reason}</span>
         <span className="text-xs text-ink-2">
-          신고자 {report.profiles?.nickname ?? '익명'} ·{' '}
+          {isInquiry ? '문의자' : '신고자'} {report.profiles?.nickname ?? '익명'} ·{' '}
           {formatDateTime(report.created_at)}
         </span>
       </div>
 
-      <p className="mt-2 text-xs text-ink-2">
-        대상:{' '}
-        {targetPostId ? (
-          <Link
-            href={`/posts/${targetPostId}`}
-            target="_blank"
-            className="text-ink-1 underline"
-          >
-            {targetText?.slice(0, 60) || '(내용 없음)'}
-          </Link>
-        ) : (
-          <span>(삭제된 대상)</span>
-        )}
-      </p>
-
-      {report.detail && (
-        <p className="mt-1 text-xs text-ink-2">상세: {report.detail}</p>
+      {isInquiry ? (
+        report.detail && (
+          <p className="mt-2 whitespace-pre-wrap text-xs text-ink-2">
+            {report.detail}
+          </p>
+        )
+      ) : (
+        <>
+          <p className="mt-2 text-xs text-ink-2">
+            대상:{' '}
+            {targetPostId ? (
+              <Link
+                href={`/posts/${targetPostId}`}
+                target="_blank"
+                className="text-ink-1 underline"
+              >
+                {targetText?.slice(0, 60) || '(내용 없음)'}
+              </Link>
+            ) : (
+              <span>(삭제된 대상)</span>
+            )}
+          </p>
+          {report.detail && (
+            <p className="mt-1 text-xs text-ink-2">상세: {report.detail}</p>
+          )}
+        </>
       )}
 
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start">

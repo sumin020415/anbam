@@ -58,8 +58,8 @@ export default function MyPageView({
     { key: 'profile', label: '프로필' },
     { key: 'password', label: '비밀번호 변경' },
     { key: 'history', label: '내 활동' },
-    { key: 'reports', label: '내 신고' },
-    // 관리자 전용 - 사람들이 신고한 내역 확인 + 답변
+    { key: 'reports', label: '내 문의' },
+    // 관리자 전용 - 사람들이 신고·문의한 내역 확인 + 답변
     ...(isAdmin ? [{ key: 'admin' as Menu, label: '문의내역' }] : []),
   ];
 

@@ -60,7 +60,46 @@ export async function createReport(
   }
 }
 
-// 마이페이지 "내 신고" - 본인이 한 신고 + 대상(글/댓글) + 상태/답변.
+// 관리자 문의 카테고리 (라디오). value 가 reason 에 저장됨 (신고 사유와 동일하게 reason 칸 사용).
+export const INQUIRY_CATEGORIES = [
+  '계정·로그인',
+  '신고 관련',
+  '버그·오류',
+  '기능 제안',
+  '기타',
+] as const;
+
+export type InquiryCategory = (typeof INQUIRY_CATEGORIES)[number];
+
+// 관리자에게 일반 문의 (대상 없음 - post_id/comment_id 둘 다 null).
+// reason = 카테고리, detail = 내용. 신고와 같은 reports 테이블 사용 (check num_nonnulls <= 1).
+export async function createInquiry(
+  client: SupabaseClient,
+  input: { category: string; content: string },
+): Promise<void> {
+  const {
+    data: { user },
+    error: userErr,
+  } = await client.auth.getUser();
+  if (userErr || !user) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  const { error } = await client.from('reports').insert({
+    post_id: null,
+    comment_id: null,
+    reporter_id: user.id,
+    reason: input.category,
+    detail: input.content.trim() ? input.content.trim() : null,
+  });
+
+  if (error) {
+    console.error('[reports] createInquiry error:', error);
+    throw new Error('문의 등록 중 오류가 발생했습니다.');
+  }
+}
+
+// 마이페이지 "내 문의" - 본인이 한 신고/문의 + 대상(글/댓글) + 상태/답변.
 export type MyReportRow = {
   id: number;
   post_id: number | null;
