@@ -16,7 +16,7 @@ export type PostRow = {
   address: string | null;
   view_count: number;
   created_at: string;
-  profiles: { nickname: string | null } | null;
+  profiles: { nickname: string | null; avatar_url: string | null } | null;
   comments?: { count: number }[];
   like_count?: number;
   dislike_count?: number;
@@ -27,7 +27,7 @@ export type PostSort = 'latest' | 'likes' | 'dislikes' | 'views' | 'comments';
 export const POSTS_PAGE_SIZE = 20;
 
 const POST_SELECT =
-  'id, author_id, title, content, image_url, lat, lng, address, view_count, created_at, profiles!posts_author_id_fkey(nickname)';
+  'id, author_id, title, content, image_url, lat, lng, address, view_count, created_at, profiles!posts_author_id_fkey(nickname, avatar_url)';
 
 const POST_SELECT_WITH_COMMENT_COUNT = `${POST_SELECT}, comments(count)`;
 

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { PostRow } from '@/lib/services/posts';
 import KakaoMap from '@/components/map/KakaoMap';
 import MapPin from '@/components/map/MapPin';
+import AuthorAvatar from '@/components/AuthorAvatar';
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -67,8 +68,13 @@ export default function PostCard({ post }: { post: PostRow }) {
         </p>
 
         <div className="mt-2 flex items-center justify-between border-t border-line-1 pt-2 text-xs sm:mt-3 sm:pt-3">
-          <span className="truncate font-medium text-ink-1">
-            {post.profiles?.nickname ?? '익명'}
+          <span className="flex min-w-0 items-center gap-1.5 font-medium text-ink-1">
+            <AuthorAvatar
+              nickname={post.profiles?.nickname ?? null}
+              avatarUrl={post.profiles?.avatar_url ?? null}
+              size={20}
+            />
+            <span className="truncate">{post.profiles?.nickname ?? '익명'}</span>
           </span>
           <span className="flex shrink-0 items-center gap-2 text-ink-2 sm:gap-2.5">
             <span>조회 {post.view_count}</span>

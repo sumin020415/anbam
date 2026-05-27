@@ -12,6 +12,7 @@ import MoreMenu from '@/components/post/MoreMenu';
 import ReactionButtons from '@/components/post/ReactionButtons';
 import PostLocation from '@/components/post/PostLocation';
 import CommentTree from '@/components/comment/CommentTree';
+import AuthorAvatar from '@/components/AuthorAvatar';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +64,14 @@ export default async function PostDetailPage({
         </h1>
 
         <div className="mt-3 flex items-center justify-between text-xs text-ink-2">
-          <span>{post.profiles?.nickname ?? '익명'}</span>
+          <span className="flex items-center gap-2 font-medium text-ink-1">
+            <AuthorAvatar
+              nickname={post.profiles?.nickname ?? null}
+              avatarUrl={post.profiles?.avatar_url ?? null}
+              size={28}
+            />
+            {post.profiles?.nickname ?? '익명'}
+          </span>
           <div className="flex items-center gap-3">
             <span>조회 {post.view_count}</span>
             <span>{formatDateTime(post.created_at)}</span>

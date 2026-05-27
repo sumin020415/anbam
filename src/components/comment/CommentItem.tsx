@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { deleteComment, type CommentRow } from '@/lib/services/comments';
 import { createClient } from '@/lib/supabase/client';
 import CommentForm from './CommentForm';
+import AuthorAvatar from '@/components/AuthorAvatar';
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -58,8 +59,15 @@ export default function CommentItem({
     <div style={{ paddingLeft: padLeft }}>
       <div className="rounded-anbam border border-line-1 bg-white p-3">
         <div className="flex items-center justify-between text-xs text-ink-2">
-          <span className="font-bold text-ink-1">
-            {comment.profiles?.nickname ?? '익명'}
+          <span className="flex min-w-0 items-center gap-1.5 font-bold text-ink-1">
+            <AuthorAvatar
+              nickname={comment.profiles?.nickname ?? null}
+              avatarUrl={comment.profiles?.avatar_url ?? null}
+              size={20}
+            />
+            <span className="truncate">
+              {comment.profiles?.nickname ?? '익명'}
+            </span>
           </span>
           <span>{formatDateTime(comment.created_at)}</span>
         </div>

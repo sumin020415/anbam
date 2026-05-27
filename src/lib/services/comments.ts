@@ -8,11 +8,11 @@ export type CommentRow = {
   parent_id: string | null;
   content: string;
   created_at: string;
-  profiles: { nickname: string | null } | null;
+  profiles: { nickname: string | null; avatar_url: string | null } | null;
 };
 
 const COMMENT_SELECT =
-  'id, post_id, author_id, parent_id, content, created_at, profiles!comments_author_id_fkey(nickname)';
+  'id, post_id, author_id, parent_id, content, created_at, profiles!comments_author_id_fkey(nickname, avatar_url)';
 
 function toKoreanCommentError(error: {
   code?: string;
