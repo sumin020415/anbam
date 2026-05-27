@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getProfile } from '@/lib/services/profiles';
 import { getPostsByAuthor, getLikedPosts } from '@/lib/services/posts';
 import { getCommentsByAuthor } from '@/lib/services/comments';
+import { getMyReports } from '@/lib/services/reports';
 import MyPageView from '@/components/mypage/MyPageView';
 
 export default async function MyPage() {
@@ -15,12 +16,14 @@ export default async function MyPage() {
     redirect('/login');
   }
 
-  const [profile, myPosts, myComments, likedPosts] = await Promise.all([
-    getProfile(supabase, user.id),
-    getPostsByAuthor(supabase, user.id),
-    getCommentsByAuthor(supabase, user.id),
-    getLikedPosts(supabase, user.id),
-  ]);
+  const [profile, myPosts, myComments, likedPosts, myReports] =
+    await Promise.all([
+      getProfile(supabase, user.id),
+      getPostsByAuthor(supabase, user.id),
+      getCommentsByAuthor(supabase, user.id),
+      getLikedPosts(supabase, user.id),
+      getMyReports(supabase, user.id),
+    ]);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
@@ -33,6 +36,7 @@ export default async function MyPage() {
           posts={myPosts}
           comments={myComments}
           likedPosts={likedPosts}
+          reports={myReports}
           avatarUrl={profile?.avatar_url ?? null}
         />
       </div>

@@ -35,3 +35,20 @@ export async function isNicknameTaken(
   if (error) throw error;
   return (count ?? 0) > 0;
 }
+
+// 관리자 여부 (admin 페이지 가드). is_admin 컬럼 미존재 시(스키마 미적용) false fail-soft.
+export async function isAdminUser(
+  client: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) {
+    console.error('[profiles] isAdminUser error:', error);
+    return false;
+  }
+  return !!data?.is_admin;
+}

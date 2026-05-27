@@ -475,22 +475,54 @@ grant execute on function public.increment_post_view(bigint) to anon, authentica
 
 
 -- ============================================================
--- 12. reports (제보글 신고)
+-- 12. reports (제보글·댓글 신고) + 관리자 워크플로
 -- ============================================================
--- 로그인 사용자가 제보글을 신고. 1인 1신고(unique). 관리자 검토는 대시보드에서 수동
--- (status pending/reviewed/dismissed). reason 은 고정 사유 라벨, detail 은 기타 상세.
-create table if not exists public.reports (
+-- 로그인 사용자가 제보글 또는 댓글을 신고. 대상은 post_id / comment_id 중 하나(check).
+-- 타깃별 1인 1신고(unique). 관리자(profiles.is_admin)가 /admin/reports 에서 상태 변경 +
+-- 답변(admin_reply) 작성 → 신고자는 마이페이지 "내 신고" 에서 상태/답변 확인.
+--   status: pending(접수) / reviewed(처리완료) / dismissed(반려)
+
+-- 관리자 플래그. 권한 부여 UI 는 없음 - 대시보드 Table editor 에서 본인 profiles row 의
+-- is_admin 을 true 로 수동 설정 (관리자 1명 데모).
+alter table public.profiles
+  add column if not exists is_admin boolean not null default false;
+
+-- RLS 안에서 admin 판별. 정책에서 profiles 를 직접 subquery 하면 재귀 위험 →
+-- security definer 함수로 우회 (표준 패턴).
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
+$$;
+grant execute on function public.is_admin() to authenticated;
+
+-- 기존 reports (post 전용 v1) 가 있으면 교체. 데모라 데이터 적어 drop & recreate 안전.
+drop table if exists public.reports cascade;
+create table public.reports (
   id          bigint generated always as identity primary key,
-  post_id     bigint not null references public.posts(id) on delete cascade,
+  post_id     bigint references public.posts(id) on delete cascade,
+  comment_id  bigint references public.comments(id) on delete cascade,
   reporter_id uuid not null references public.profiles(id) on delete cascade,
   reason      text not null,
   detail      text,
   status      text not null default 'pending',
+  admin_reply text,
+  replied_at  timestamptz,
   created_at  timestamptz not null default now(),
-  unique (post_id, reporter_id)
+  -- post_id / comment_id 중 정확히 하나만 (게시글 신고 또는 댓글 신고)
+  constraint reports_target_chk check (num_nonnulls(post_id, comment_id) = 1),
+  -- 타깃별 1인 1신고. null 은 distinct 라 다른 타깃 신고에는 영향 없음.
+  unique (post_id, reporter_id),
+  unique (comment_id, reporter_id)
 );
 
 create index if not exists reports_post_idx on public.reports (post_id);
+create index if not exists reports_comment_idx on public.reports (comment_id);
+create index if not exists reports_status_idx on public.reports (status);
 
 alter table public.reports enable row level security;
 
@@ -500,14 +532,23 @@ create policy "reports_insert_self"
   on public.reports for insert
   with check (auth.uid() = reporter_id);
 
--- 본인이 한 신고만 조회 (관리자는 service_role 로 전체 조회)
+-- 본인 신고 또는 관리자만 조회
 drop policy if exists "reports_select_self" on public.reports;
-create policy "reports_select_self"
+drop policy if exists "reports_select_self_or_admin" on public.reports;
+create policy "reports_select_self_or_admin"
   on public.reports for select
-  using (auth.uid() = reporter_id);
+  using (auth.uid() = reporter_id or public.is_admin());
 
--- anon 은 신고 불가(로그인 필요), authenticated insert/select, service_role 전체
-grant select, insert on public.reports to authenticated;
+-- 관리자만 수정 (상태 변경 / 답변 작성)
+drop policy if exists "reports_update_admin" on public.reports;
+create policy "reports_update_admin"
+  on public.reports for update
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- anon 은 신고 불가(로그인 필요). authenticated insert/select/update
+-- (update 는 RLS reports_update_admin 로 관리자만 통과).
+grant select, insert, update on public.reports to authenticated;
 grant all on public.reports to service_role;
 
 

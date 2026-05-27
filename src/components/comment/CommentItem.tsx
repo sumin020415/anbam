@@ -6,6 +6,7 @@ import { deleteComment, type CommentRow } from '@/lib/services/comments';
 import { createClient } from '@/lib/supabase/client';
 import CommentForm from './CommentForm';
 import AuthorAvatar from '@/components/AuthorAvatar';
+import ReportModal from '@/components/post/ReportModal';
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -35,6 +36,7 @@ export default function CommentItem({
   const [editing, setEditing] = useState(false);
   const [replying, setReplying] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const isOwner = !!currentUserId && currentUserId === comment.author_id;
   const replies = childrenMap.get(comment.id) ?? [];
@@ -99,7 +101,7 @@ export default function CommentItem({
                 {replying ? '답글 취소' : '답글'}
               </button>
             )}
-            {isOwner && (
+            {isOwner ? (
               <>
                 <button
                   type="button"
@@ -117,8 +119,25 @@ export default function CommentItem({
                   {busy ? '...' : '삭제'}
                 </button>
               </>
+            ) : (
+              currentUserId && (
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="text-ink-2 hover:text-warn"
+                >
+                  신고
+                </button>
+              )
             )}
           </div>
+        )}
+
+        {reportOpen && (
+          <ReportModal
+            commentId={comment.id}
+            onClose={() => setReportOpen(false)}
+          />
         )}
 
         {replying && (

@@ -6,9 +6,11 @@ import { createClient } from '@/lib/supabase/client';
 
 export default function ReportModal({
   postId,
+  commentId,
   onClose,
 }: {
-  postId: string;
+  postId?: string;
+  commentId?: string;
   onClose: () => void;
 }) {
   const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
@@ -16,6 +18,8 @@ export default function ReportModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  const targetLabel = commentId ? '댓글' : '게시글';
 
   // Esc 닫기
   useEffect(() => {
@@ -34,7 +38,7 @@ export default function ReportModal({
     }
     setSubmitting(true);
     try {
-      await createReport(createClient(), { postId, reason, detail });
+      await createReport(createClient(), { postId, commentId, reason, detail });
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : '신고 처리 중 오류가 발생했습니다.');
@@ -54,7 +58,7 @@ export default function ReportModal({
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="게시글 신고"
+        aria-label={`${targetLabel} 신고`}
       >
         {done ? (
           <div className="space-y-4 text-center">
@@ -69,7 +73,7 @@ export default function ReportModal({
           </div>
         ) : (
           <>
-            <h2 className="text-lg font-bold text-ink-1">게시글 신고</h2>
+            <h2 className="text-lg font-bold text-ink-1">{targetLabel} 신고</h2>
             <p className="mt-1 text-xs text-ink-2">신고 사유를 선택해 주세요.</p>
 
             <div className="mt-4 space-y-1.5">

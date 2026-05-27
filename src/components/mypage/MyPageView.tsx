@@ -4,12 +4,14 @@ import { useState } from 'react';
 import ProfileEditForm from './ProfileEditForm';
 import AvatarUpload from './AvatarUpload';
 import MyContentTabs from './MyContentTabs';
+import MyReports from './MyReports';
 import PasswordChangeFlow from './PasswordChangeFlow';
 import LogoutButton from '@/components/auth/LogoutButton';
 import type { PostRow } from '@/lib/services/posts';
 import type { MyCommentRow } from '@/lib/services/comments';
+import type { MyReportRow } from '@/lib/services/reports';
 
-type Menu = 'profile' | 'history' | 'password';
+type Menu = 'profile' | 'history' | 'reports' | 'password';
 
 export default function MyPageView({
   userId,
@@ -18,6 +20,7 @@ export default function MyPageView({
   posts,
   comments,
   likedPosts,
+  reports,
   avatarUrl,
 }: {
   userId: string;
@@ -26,6 +29,7 @@ export default function MyPageView({
   posts: PostRow[];
   comments: MyCommentRow[];
   likedPosts: PostRow[];
+  reports: MyReportRow[];
   avatarUrl: string | null;
 }) {
   const [menu, setMenu] = useState<Menu>('profile');
@@ -34,6 +38,7 @@ export default function MyPageView({
     { key: 'profile', label: '프로필' },
     { key: 'password', label: '비밀번호 변경' },
     { key: 'history', label: '내 활동' },
+    { key: 'reports', label: '내 신고' },
   ];
 
   // 모바일: 가로 pill (w-auto) / 데스크탑: 세로 풀폭 메뉴 (md:w-full md:text-left)
@@ -109,6 +114,8 @@ export default function MyPageView({
             likedPosts={likedPosts}
           />
         )}
+
+        {menu === 'reports' && <MyReports reports={reports} />}
 
         {menu === 'password' && (
           <section className="rounded-anbam border border-line-1 bg-white p-6 shadow-card">
