@@ -10,15 +10,16 @@ export async function getProfile(client: SupabaseClient, userId: string) {
   return data;
 }
 
-// 마이페이지 프로필 수정 (닉네임). profiles_update_self RLS 로 본인만 가능.
+// 마이페이지 프로필 수정 (닉네임 / 아바타). 전달된 필드만 업데이트.
+// profiles_update_self RLS 로 본인만 가능.
 export async function updateProfile(
   client: SupabaseClient,
   userId: string,
-  input: { nickname: string },
+  input: { nickname?: string; avatar_url?: string },
 ): Promise<void> {
   const { error } = await client
     .from('profiles')
-    .update({ nickname: input.nickname })
+    .update(input)
     .eq('id', userId);
   if (error) throw error;
 }

@@ -89,7 +89,7 @@ export default function ProfileEditForm({
         <button
           type="button"
           onClick={handleCheck}
-          disabled={nicknameCheck === 'checking' || !nicknameValue}
+          disabled={nicknameCheck === 'checking' || !nicknameValue || unchanged}
           className="shrink-0 rounded-anbam border border-line-1 bg-line-2 px-3 py-2 text-sm font-bold text-ink-1 disabled:opacity-50"
         >
           중복확인

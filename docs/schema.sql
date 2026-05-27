@@ -291,6 +291,38 @@ create policy "post_images_select_all"
   on storage.objects for select
   using (bucket_id = 'post-images');
 
+-- ============================================================
+-- 8b. Storage - avatars 버킷 정책 (프로필 사진)
+-- ============================================================
+-- ⚠️ 버킷은 Dashboard → Storage 에서 미리 생성:
+--   - Name: avatars
+--   - Public: ON
+--   - File size limit: 2MB
+--   - Allowed MIME: image/*
+-- Path 패턴: {user.id}/{uuid}.{ext}  (services/storage.ts uploadAvatar)
+-- post-images 와 동일하게 본인 폴더만 쓰기, SELECT 는 public.
+
+drop policy if exists "avatars_insert_self" on storage.objects;
+create policy "avatars_insert_self"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "avatars_delete_self" on storage.objects;
+create policy "avatars_delete_self"
+  on storage.objects for delete
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "avatars_select_all" on storage.objects;
+create policy "avatars_select_all"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
 
 -- ============================================================
 -- 9. Default privileges (GRANT) - Data API 접근 권한

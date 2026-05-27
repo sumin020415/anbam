@@ -33,6 +33,7 @@ export default async function MyPage() {
           posts={myPosts}
           comments={myComments}
           likedPosts={likedPosts}
+          avatarUrl={profile?.avatar_url ?? null}
         />
       </div>
     </main>

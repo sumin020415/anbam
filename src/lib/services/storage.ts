@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const BUCKET = 'post-images';
+const AVATAR_BUCKET = 'avatars';
 
 export type UploadedImage = {
   path: string;
@@ -72,6 +73,36 @@ export async function uploadPostImage(
   const { data: pub } = client.storage.from(BUCKET).getPublicUrl(path);
 
   return { path, url: pub.publicUrl };
+}
+
+// 프로필 아바타 업로드 - avatars 버킷 ({user.id}/{uuid}.{ext}, post-images 와 동일 RLS 패턴).
+// 공개 버킷이라 getPublicUrl 로 바로 표시. 반환된 url 을 profiles.avatar_url 에 저장.
+export async function uploadAvatar(
+  client: SupabaseClient,
+  file: File,
+): Promise<string> {
+  const {
+    data: { user },
+    error: userErr,
+  } = await client.auth.getUser();
+  if (userErr || !user) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  const ext = getFileExtension(file);
+  const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+
+  const { error: uploadErr } = await client.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, file, { cacheControl: '3600', upsert: false });
+
+  if (uploadErr) {
+    logStorageError('avatar:upload', uploadErr);
+    throw new Error(toKoreanStorageError(uploadErr));
+  }
+
+  const { data: pub } = client.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+  return pub.publicUrl;
 }
 
 export async function deletePostImage(
