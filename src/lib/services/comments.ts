@@ -39,6 +39,28 @@ function toKoreanCommentError(error: {
   return '댓글 처리 중 오류가 발생했습니다.';
 }
 
+// 마이페이지 "내 댓글" - 작성자 본인 댓글 (최신순, 각 댓글이 달린 글 제목/링크 포함)
+export type MyCommentRow = {
+  id: string;
+  post_id: string;
+  content: string;
+  created_at: string;
+  posts: { title: string } | null;
+};
+
+export async function getCommentsByAuthor(
+  client: SupabaseClient,
+  authorId: string,
+): Promise<MyCommentRow[]> {
+  const { data, error } = await client
+    .from('comments')
+    .select('id, post_id, content, created_at, posts(title)')
+    .eq('author_id', authorId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(toKoreanCommentError(error));
+  return (data ?? []) as unknown as MyCommentRow[];
+}
+
 export async function getComments(
   client: SupabaseClient,
   postId: string,

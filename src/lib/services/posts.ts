@@ -83,6 +83,21 @@ async function attachReactionCounts(
   }));
 }
 
+// 마이페이지 "내 제보" - 작성자 본인 글 목록 (최신순, 댓글 수 + 반응 수 포함, PostCard 재사용)
+export async function getPostsByAuthor(
+  client: SupabaseClient,
+  authorId: string,
+): Promise<PostRow[]> {
+  const { data, error } = await client
+    .from('posts')
+    .select(POST_SELECT_WITH_COMMENT_COUNT)
+    .eq('author_id', authorId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(toKoreanPostError(error));
+  const rows = (data ?? []) as unknown as PostRow[];
+  return attachReactionCounts(client, rows);
+}
+
 function escapeIlikeTerm(q: string): string {
   return q.replace(/([%_])/g, '\\$1');
 }
