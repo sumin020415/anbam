@@ -4,11 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { deletePost } from '@/lib/services/posts';
+import ReportModal from './ReportModal';
 
-export default function MoreMenu({ postId }: { postId: string }) {
+export default function MoreMenu({
+  postId,
+  isOwner,
+}: {
+  postId: string;
+  isOwner: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,23 +68,43 @@ export default function MoreMenu({ postId }: { postId: string }) {
           role="menu"
           className="absolute right-0 top-full z-30 mt-1 min-w-[110px] overflow-hidden rounded-anbam border border-line-1 bg-white shadow-card"
         >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleEdit}
-            className="block w-full px-3 py-2 text-left text-sm text-ink-1 hover:bg-line-2"
-          >
-            수정
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleDelete}
-            className="block w-full px-3 py-2 text-left text-sm font-bold text-warn hover:bg-line-2"
-          >
-            {busy ? '삭제 중...' : '삭제'}
-          </button>
+          {isOwner ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleEdit}
+                className="block w-full px-3 py-2 text-left text-sm text-ink-1 hover:bg-line-2"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleDelete}
+                className="block w-full px-3 py-2 text-left text-sm font-bold text-warn hover:bg-line-2"
+              >
+                {busy ? '삭제 중...' : '삭제'}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setReportOpen(true);
+              }}
+              className="block w-full px-3 py-2 text-left text-sm font-bold text-warn hover:bg-line-2"
+            >
+              신고
+            </button>
+          )}
         </div>
+      )}
+
+      {reportOpen && (
+        <ReportModal postId={postId} onClose={() => setReportOpen(false)} />
       )}
     </div>
   );

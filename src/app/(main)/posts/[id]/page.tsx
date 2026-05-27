@@ -75,7 +75,7 @@ export default async function PostDetailPage({
           <div className="flex items-center gap-3">
             <span>조회 {post.view_count}</span>
             <span>{formatDateTime(post.created_at)}</span>
-            {isOwner && <MoreMenu postId={post.id} />}
+            {user && <MoreMenu postId={post.id} isOwner={isOwner} />}
           </div>
         </div>
 

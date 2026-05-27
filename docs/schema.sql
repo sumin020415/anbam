@@ -475,6 +475,43 @@ grant execute on function public.increment_post_view(bigint) to anon, authentica
 
 
 -- ============================================================
+-- 12. reports (제보글 신고)
+-- ============================================================
+-- 로그인 사용자가 제보글을 신고. 1인 1신고(unique). 관리자 검토는 대시보드에서 수동
+-- (status pending/reviewed/dismissed). reason 은 고정 사유 라벨, detail 은 기타 상세.
+create table if not exists public.reports (
+  id          bigint generated always as identity primary key,
+  post_id     bigint not null references public.posts(id) on delete cascade,
+  reporter_id uuid not null references public.profiles(id) on delete cascade,
+  reason      text not null,
+  detail      text,
+  status      text not null default 'pending',
+  created_at  timestamptz not null default now(),
+  unique (post_id, reporter_id)
+);
+
+create index if not exists reports_post_idx on public.reports (post_id);
+
+alter table public.reports enable row level security;
+
+-- 본인 신고만 insert (로그인 필요)
+drop policy if exists "reports_insert_self" on public.reports;
+create policy "reports_insert_self"
+  on public.reports for insert
+  with check (auth.uid() = reporter_id);
+
+-- 본인이 한 신고만 조회 (관리자는 service_role 로 전체 조회)
+drop policy if exists "reports_select_self" on public.reports;
+create policy "reports_select_self"
+  on public.reports for select
+  using (auth.uid() = reporter_id);
+
+-- anon 은 신고 불가(로그인 필요), authenticated insert/select, service_role 전체
+grant select, insert on public.reports to authenticated;
+grant all on public.reports to service_role;
+
+
+-- ============================================================
 -- 완료
 -- ============================================================
 -- 검증 쿼리:
