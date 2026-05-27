@@ -31,7 +31,7 @@
 |------|------|
 | 🎨 디자인 토큰 시스템 (안밤 토스/카카오 무드) | ✅ |
 | 🔐 회원가입 / 로그인 (Supabase Auth) | ✅ |
-| 👤 마이페이지 (네이버식 사이드바 허브 - 데스크탑 좌측 세로 / 모바일 상단 가로 메뉴) - 프로필 닉네임 수정 (가입과 동일 중복확인) + 내 활동 탭 (내 제보 / 내 댓글 / 좋아요한 글 이력) | ✅ |
+| 👤 마이페이지 (네이버식 사이드바 허브 - 데스크탑 좌측 세로 / 모바일 상단 가로 메뉴) - 프로필 (아바타 업로드 + 닉네임 수정[가입과 동일 중복확인]) / 비밀번호 변경 (현재 비밀번호 재인증 → 새 비밀번호 2단계) / 내 활동 탭 (내 제보 / 내 댓글 / 좋아요한 글 이력) | ✅ |
 | ✍️ 회원가입 폼 강화 (도메인 select, 이메일/닉네임 중복확인, 비밀번호 강도/확인) | ✅ |
 | 👁 비밀번호 보이기/가리기 토글 (회원가입·로그인·재설정) | ✅ |
 | 🔄 비밀번호 재설정 (이메일 링크 + PKCE 콜백) | ✅ |
@@ -113,12 +113,14 @@ npm run start        # 프로덕션 서버 (build 후)
 통합 스키마 파일 [`docs/schema.sql`](docs/schema.sql) 한 번에 실행:
 
 1. **Storage 버킷 사전 생성** (Dashboard → Storage)
-   - Name: `post-images` / Public: ON / File size limit: 5MB / Allowed MIME: `image/*`
+   - `post-images` / Public: ON / File size limit: 5MB / Allowed MIME: `image/*` (게시글 이미지)
+   - `avatars` / Public: ON / File size limit: 2MB / Allowed MIME: `image/*` (프로필 사진)
 2. **SQL Editor 에서 `docs/schema.sql` 전체 실행** - 다음이 한 번에 생성됩니다:
    - 테이블 6개: `profiles / posts / comments / reactions / cctvs / lamps`
    - RLS 정책 (조회 공개, 쓰기는 본인만)
    - `auth.users` → `profiles` 자동 생성 트리거 (`handle_new_user`)
-   - Storage 정책 (`post-images` 버킷 - `{user.id}/{uuid}.{ext}` path 패턴)
+   - Storage 정책 (`post-images` / `avatars` 버킷 - `{user.id}/{uuid}.{ext}` path 패턴)
+   - RPC 함수 (`get_district_pin_counts` / `get_dong_pin_counts` / `increment_post_view`)
 
 > 모든 `create` 문은 `if not exists`, 정책은 `drop policy if exists ...; create policy ...` 패턴이라 재실행 안전합니다.
 
@@ -210,7 +212,7 @@ src/
 │   ├── post/                         # PostCard (velog 16:9 thumbnail + placeholder 3단 [이미지→지도→로고] + 메타 4종 조회/👍/👎/💬 + h-full + hover lift) / PostList (grid 1/2/3 cols + key reset) / PostTabs (5종 정렬 segmented + useTransition pending) / SearchBox (제목·본문 ilike + ?q query + 브라우저 기본 ✕ 제거) / PostForm (위치 picker + 이미지 업로드 + `?lat&lng` query 마운트 자동 reverseGeocode) / PostLocation (상세 본문 아래 위치 지도 h-56) / MoreMenu (헤더 우측 ⋯ 수정·삭제 통합) / FloatingWriteButton (게시판 우하단 노란 연필) / ViewCountTrigger / ReactionButtons
 │   ├── comment/                      # CommentTree / CommentItem / CommentForm
 │   ├── map/                          # KakaoMap (래퍼, onMapCreate + onIdle + getBounds) / MapHome (메인 홈 + 3단 줌 분기 자치구·동·개별 + 검색·클릭 통합 파란 마커 + 주소 카드 + 여기에 제보 작성 Link + **Phase 11 개별 핀 viewport bbox fetch (onIdle + getBounds, debounce 300ms, 줌아웃 시 핀 비워 메모리 회수) + 동 클러스터 fallback + 우상단 fixed indicator**) / MapPin (개별 핀, 종류별 색) / ClusterPin (자치구·동 클러스터, count, sizeOf 36~48px, CustomOverlayMap zIndex) / clusterByDistrict (BUSAN_DISTRICTS 16 화이트리스트 + BUSAN_DISTRICT_CENTER 시내 5 자치구 분산 좌표 + clusterByDistrict + clusterByDong + normalizeDong 5 단계 정규화: 비정상값 skip → 도로명 skip → 도로명+번지 skip → 첫 (동|읍|면) lazy 추출 → 행정→법정 + **Phase 11 RPC 헬퍼 `clusterDistrictCounts` / `clusterDongCounts` ⭐**)
-│   ├── mypage/                       # MyPageView (사이드바 허브 - 데스크탑 좌측 세로 / 모바일 상단 가로 메뉴) / ProfileEditForm (닉네임 수정 + 가입식 중복확인) / MyContentTabs (내 제보·내 댓글·좋아요 탭)
+│   ├── mypage/                       # MyPageView (사이드바 허브 - 데스크탑 좌측 세로 / 모바일 상단 가로 메뉴, 프로필·비밀번호 변경·내 활동) / ProfileEditForm (닉네임 수정 + 가입식 중복확인) / AvatarUpload (프로필 사진 업로드 - avatars 버킷) / PasswordChangeFlow (2단계: 현재 비번 재인증 → 새 비번) / MyContentTabs (내 제보·내 댓글·좋아요 탭)
 │   ├── auth/LogoutButton.tsx
 │   └── layout/                       # Header (xl+ 데스크탑 3-컬럼 / xl 미만 햄버거) / MobileNav (모바일 nav 우측 슬라이드 드로어) / MobileMapBar (모바일 지도 페이지 검색·필터 서브바) / HeaderSearchBox (Places + Geocoder 병렬, debounce 500ms) / PinFilterToggle (4 segmented, ?filter URL query, fullWidth prop) / ScrollToTopButton (모든 메인 페이지, 200px+ floating ↑) / Footer (콘텐츠 페이지 하단, 데이터 출처 + © + 포트폴리오 링크, 지도 메인 제외)
 ├── hooks/                            # useUser (onAuthStateChange 구독)
@@ -218,7 +220,7 @@ src/
 │   ├── supabase/                     # 브라우저/서버 클라이언트 + admin (서버 전용)
 │   ├── schemas/                      # zod (auth/post/comment/profile)
 │   ├── utils/                        # server-safe utility (server/client 양쪽 import 가능) - pinFilter (타입/가드/OPTIONS)
-│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles[getProfile / updateProfile / isNicknameTaken]/posts[getPosts 통합 - 5종 sort latest·likes·dislikes·views·comments + 검색 ilike + escapeIlikeTerm + comments(count) join + reactions 별도 fetch + DB 정렬 가능/불가능 분기 + getPostsByAuthor / getLikedPosts (마이페이지 내 활동)]/comments[getComments + getCommentsByAuthor]/reactions/pins[**Phase 11 `getDistrictPinCounts` / `getDongPinCounts` RPC ⭐ (6MB → 95KB, 63× 감소)** + `DistrictPinCount` / `DongPinCount` 타입 + `getCctvPinsInBounds` / `getLampPinsInBounds` (개별 핀 모드 viewport bbox fetch - gte/lte lat·lng + BOUNDS_FETCH_CAP=2000) + `LatLngBounds` 타입]/storage/analytics[자치구 카운트 N 병렬 + KST 시계열])
+│   └── services/                     # Supabase 쿼리/뮤테이션 (auth/profiles[getProfile / updateProfile / isNicknameTaken]/posts[getPosts 통합 - 5종 sort latest·likes·dislikes·views·comments + 검색 ilike + escapeIlikeTerm + comments(count) join + reactions 별도 fetch + DB 정렬 가능/불가능 분기 + getPostsByAuthor / getLikedPosts (마이페이지 내 활동)]/comments[getComments + getCommentsByAuthor]/reactions/pins[**Phase 11 `getDistrictPinCounts` / `getDongPinCounts` RPC ⭐ (6MB → 95KB, 63× 감소)** + `DistrictPinCount` / `DongPinCount` 타입 + `getCctvPinsInBounds` / `getLampPinsInBounds` (개별 핀 모드 viewport bbox fetch - gte/lte lat·lng + BOUNDS_FETCH_CAP=2000) + `LatLngBounds` 타입]/storage[uploadPostImage / uploadAvatar / deletePostImage]/analytics[자치구 카운트 N 병렬 + KST 시계열])
 ├── data/                             # 정적 데이터 - busanStatic.ts (헬퍼) + gu_name + population + population_density JSON (분석 페이지)
 └── proxy.ts                          # 세션 자동 갱신 (Next.js 16, `export async function proxy(req)` + matcher config)
 
