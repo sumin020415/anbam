@@ -6,12 +6,13 @@ import AvatarUpload from './AvatarUpload';
 import MyContentTabs from './MyContentTabs';
 import MyReports from './MyReports';
 import PasswordChangeFlow from './PasswordChangeFlow';
+import AdminReportsView from '@/components/admin/AdminReportsView';
 import LogoutButton from '@/components/auth/LogoutButton';
 import type { PostRow } from '@/lib/services/posts';
 import type { MyCommentRow } from '@/lib/services/comments';
-import type { MyReportRow } from '@/lib/services/reports';
+import type { MyReportRow, AdminReportRow } from '@/lib/services/reports';
 
-type Menu = 'profile' | 'history' | 'reports' | 'password';
+type Menu = 'profile' | 'history' | 'reports' | 'admin' | 'password';
 
 export default function MyPageView({
   userId,
@@ -21,6 +22,8 @@ export default function MyPageView({
   comments,
   likedPosts,
   reports,
+  isAdmin,
+  adminReports,
   avatarUrl,
 }: {
   userId: string;
@@ -30,6 +33,8 @@ export default function MyPageView({
   comments: MyCommentRow[];
   likedPosts: PostRow[];
   reports: MyReportRow[];
+  isAdmin: boolean;
+  adminReports: AdminReportRow[];
   avatarUrl: string | null;
 }) {
   const [menu, setMenu] = useState<Menu>('profile');
@@ -39,6 +44,8 @@ export default function MyPageView({
     { key: 'password', label: '비밀번호 변경' },
     { key: 'history', label: '내 활동' },
     { key: 'reports', label: '내 신고' },
+    // 관리자 전용 - 사람들이 신고한 내역 확인 + 답변
+    ...(isAdmin ? [{ key: 'admin' as Menu, label: '문의내역' }] : []),
   ];
 
   // 모바일: 가로 pill (w-auto) / 데스크탑: 세로 풀폭 메뉴 (md:w-full md:text-left)
@@ -116,6 +123,19 @@ export default function MyPageView({
         )}
 
         {menu === 'reports' && <MyReports reports={reports} />}
+
+        {menu === 'admin' && isAdmin && (
+          <section className="rounded-anbam border border-line-1 bg-white p-6 shadow-card">
+            <h2 className="text-lg font-bold text-ink-1">문의내역 (신고 관리)</h2>
+            <p className="mt-1 text-xs text-ink-2">
+              사용자가 신고한 글·댓글입니다. 상태를 변경하고 답변을 남기면 신고자
+              마이페이지 &quot;내 신고&quot; 에 표시됩니다.
+            </p>
+            <div className="mt-4">
+              <AdminReportsView reports={adminReports} />
+            </div>
+          </section>
+        )}
 
         {menu === 'password' && (
           <section className="rounded-anbam border border-line-1 bg-white p-6 shadow-card">
