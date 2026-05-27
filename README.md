@@ -226,7 +226,7 @@ scripts/
 └── fix-lamp-district.ts              # LAMP 자치구·동 보정 (도로명 단편 row 만 좁혀서 reverse geocoding)
 
 docs/
-└── schema.sql                        # Supabase 통합 SQL - 6테이블 + RLS + 트리거 + Storage 정책 + Data API GRANT + **§10 RPC 함수 (`get_district_pin_counts` / `get_dong_pin_counts`) ⭐ Phase 11** (재실행 안전, create or replace)
+└── schema.sql                        # Supabase 통합 SQL - 6테이블 + RLS + 트리거 + Storage 정책 + Data API GRANT + **§10 RPC (`get_district_pin_counts` / `get_dong_pin_counts`, Phase 11) + §11 RPC (`increment_post_view` - 조회수 +1, RLS 우회 security definer, 비로그인 포함 카운팅) ⭐** (재실행 안전, create or replace)
 
 public/
 └── Busan.svg                         # 부산 16 자치구 SVG (원본 nightsafe 자산, BusanSvg.tsx 의 path 데이터 원본)
