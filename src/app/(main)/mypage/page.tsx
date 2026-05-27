@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getProfile } from '@/lib/services/profiles';
-import { getPostsByAuthor } from '@/lib/services/posts';
+import { getPostsByAuthor, getLikedPosts } from '@/lib/services/posts';
 import { getCommentsByAuthor } from '@/lib/services/comments';
 import MyPageView from '@/components/mypage/MyPageView';
 
@@ -15,10 +15,11 @@ export default async function MyPage() {
     redirect('/login');
   }
 
-  const [profile, myPosts, myComments] = await Promise.all([
+  const [profile, myPosts, myComments, likedPosts] = await Promise.all([
     getProfile(supabase, user.id),
     getPostsByAuthor(supabase, user.id),
     getCommentsByAuthor(supabase, user.id),
+    getLikedPosts(supabase, user.id),
   ]);
 
   return (
@@ -31,6 +32,7 @@ export default async function MyPage() {
           nickname={profile?.nickname ?? ''}
           posts={myPosts}
           comments={myComments}
+          likedPosts={likedPosts}
         />
       </div>
     </main>

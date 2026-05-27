@@ -98,6 +98,37 @@ export async function getPostsByAuthor(
   return attachReactionCounts(client, rows);
 }
 
+// 마이페이지 "좋아요" - 내가 좋아요(👍) 누른 글 목록 (좋아요 누른 최신순)
+export async function getLikedPosts(
+  client: SupabaseClient,
+  userId: string,
+): Promise<PostRow[]> {
+  const { data: reacts, error: rErr } = await client
+    .from('reactions')
+    .select('post_id, created_at')
+    .eq('user_id', userId)
+    .eq('type', 'like')
+    .order('created_at', { ascending: false });
+  if (rErr) throw new Error(toKoreanPostError(rErr));
+  const ids = (reacts ?? []).map((r) => (r as { post_id: number }).post_id);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await client
+    .from('posts')
+    .select(POST_SELECT_WITH_COMMENT_COUNT)
+    .in('id', ids);
+  if (error) throw new Error(toKoreanPostError(error));
+  const rows = await attachReactionCounts(
+    client,
+    (data ?? []) as unknown as PostRow[],
+  );
+  // 좋아요 누른 순서(reaction 최신순) 유지
+  const order = new Map(ids.map((id, i) => [String(id), i]));
+  return rows.sort(
+    (a, b) => (order.get(String(a.id)) ?? 0) - (order.get(String(b.id)) ?? 0),
+  );
+}
+
 function escapeIlikeTerm(q: string): string {
   return q.replace(/([%_])/g, '\\$1');
 }

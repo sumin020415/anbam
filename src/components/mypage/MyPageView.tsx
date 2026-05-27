@@ -15,18 +15,20 @@ export default function MyPageView({
   nickname,
   posts,
   comments,
+  likedPosts,
 }: {
   userId: string;
   email: string;
   nickname: string;
   posts: PostRow[];
   comments: MyCommentRow[];
+  likedPosts: PostRow[];
 }) {
   const [menu, setMenu] = useState<Menu>('profile');
 
   const items: { key: Menu; label: string }[] = [
     { key: 'profile', label: '프로필' },
-    { key: 'history', label: '작성 이력' },
+    { key: 'history', label: '내 활동' },
   ];
 
   // 모바일: 가로 pill (w-auto) / 데스크탑: 세로 풀폭 메뉴 (md:w-full md:text-left)
@@ -80,7 +82,11 @@ export default function MyPageView({
             </div>
           </section>
         ) : (
-          <MyContentTabs posts={posts} comments={comments} />
+          <MyContentTabs
+            posts={posts}
+            comments={comments}
+            likedPosts={likedPosts}
+          />
         )}
       </div>
     </div>
